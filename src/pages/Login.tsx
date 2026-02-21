@@ -1,10 +1,20 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Shield, Eye, EyeOff } from "lucide-react";
+import { Shield, Eye, EyeOff, User, UserCog } from "lucide-react";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
+
+  const handleDemoLogin = (role: 'user' | 'admin') => {
+    // In a real app, you would set authentication state here
+    if (role === 'admin') {
+      navigate('/admin/dashboard');
+    } else {
+      navigate('/dashboard');
+    }
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -110,6 +120,36 @@ const Login = () => {
               </svg>
               Continue with Google
             </Button>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-background px-3 text-muted-foreground">Quick Demo Access</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="w-full text-sm font-medium"
+                onClick={() => handleDemoLogin('user')}
+              >
+                <User className="w-4 h-4 mr-2" />
+                User Demo
+              </Button>
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="w-full text-sm font-medium"
+                onClick={() => handleDemoLogin('admin')}
+              >
+                <UserCog className="w-4 h-4 mr-2" />
+                Admin Demo
+              </Button>
+            </div>
           </div>
 
           <p className="text-center text-sm text-muted-foreground">
