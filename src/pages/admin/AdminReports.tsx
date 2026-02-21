@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import AdminDashboardLayout from "@/components/AdminDashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Flag, Loader2, Eye, CheckCircle2, X, Clock } from "lucide-react";
-import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
+import { Flag, Loader2, Eye, X, ShieldBan } from "lucide-react";
+import { collection, query, onSnapshot, orderBy, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { reviewReport } from "@/lib/firebase/reports";
 import { getUser } from "@/lib/firebase/users";
@@ -81,15 +81,34 @@ const AdminReports = () => {
   const filteredReports =
     filter === "All" ? reports : reports.filter((r) => r.status === filter);
 
-  const handleReview = async (
-    reportId: string,
-    status: "under_review" | "resolved" | "dismissed"
-  ) => {
+  const handleBlock = async (reportId: string, reportedUserId: string, reportType: string) => {
     if (!user) return;
     setActionLoading(true);
     try {
-      await reviewReport(reportId, user.uid, status, actionText || `Marked as ${status} by admin`);
-      toast({ title: "Report updated", description: `Marked as ${status.replace("_", " ")}` });
+      // Ban the reported user
+      await updateDoc(doc(db, "users", reportedUserId), {
+        ban_status: "active",
+        ban_reason: actionText || `Banned due to report: ${REPORT_TYPE_LABELS[reportType] || reportType}`,
+        updated_at: serverTimestamp(),
+      });
+      // Mark report as resolved
+      await reviewReport(reportId, user.uid, "resolved", actionText || `User blocked due to: ${REPORT_TYPE_LABELS[reportType] || reportType}`);
+      toast({ title: "User blocked", description: "The reported user has been banned and the report resolved." });
+      setSelectedReport(null);
+      setActionText("");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDismiss = async (reportId: string) => {
+    if (!user) return;
+    setActionLoading(true);
+    try {
+      await reviewReport(reportId, user.uid, "dismissed", actionText || "Dismissed by admin");
+      toast({ title: "Report dismissed", description: "The report has been dismissed." });
       setSelectedReport(null);
       setActionText("");
     } catch (err: any) {
@@ -191,21 +210,19 @@ const AdminReports = () => {
                     <Eye className="w-3 h-3 mr-1" />
                     Review
                   </Button>
-                  {r.status === "pending" && (
-                    <Button variant="ghost" size="sm" disabled={actionLoading}
-                      onClick={() => handleReview(r.report_id, "under_review")}>
-                      <Clock className="w-3 h-3 mr-1" />
-                      Under Review
+                  {r.status !== "resolved" && r.status !== "dismissed" && (
+                    <Button variant="destructive" size="sm" disabled={actionLoading}
+                      onClick={() => handleBlock(r.report_id, r.reported_user_id, r.report_type)}>
+                      <ShieldBan className="w-3 h-3 mr-1" />
+                      Block User
                     </Button>
                   )}
                   {r.status !== "resolved" && r.status !== "dismissed" && (
-                    <>
-                      <Button variant="brand-outline" size="sm" disabled={actionLoading}
-                        onClick={() => handleReview(r.report_id, "dismissed")}>
-                        <X className="w-3 h-3 mr-1" />
-                        Dismiss
-                      </Button>
-                    </>
+                    <Button variant="outline" size="sm" disabled={actionLoading}
+                      onClick={() => handleDismiss(r.report_id)}>
+                      <X className="w-3 h-3 mr-1" />
+                      Dismiss
+                    </Button>
                   )}
                 </div>
               </div>
@@ -285,18 +302,13 @@ const AdminReports = () => {
                         className="w-full px-3 py-2 rounded-lg bg-muted border-0 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="action" size="sm" className="flex-1" disabled={actionLoading}
-                        onClick={() => handleReview(r.report_id, "resolved")}>
-                        {actionLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
-                        Mark Resolved
-                      </Button>
-                      <Button variant="ghost" size="sm" disabled={actionLoading}
-                        onClick={() => handleReview(r.report_id, "under_review")}>
-                        <Clock className="w-3 h-3 mr-1" />
-                        Under Review
+                      <Button variant="destructive" size="sm" className="flex-1" disabled={actionLoading}
+                        onClick={() => handleBlock(r.report_id, r.reported_user_id, r.report_type)}>
+                        {actionLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ShieldBan className="w-3 h-3 mr-1" />}
+                        Block User
                       </Button>
                       <Button variant="outline" size="sm" disabled={actionLoading}
-                        onClick={() => handleReview(r.report_id, "dismissed")}>
+                        onClick={() => handleDismiss(r.report_id)}>
                         <X className="w-3 h-3 mr-1" />
                         Dismiss
                       </Button>

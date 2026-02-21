@@ -109,14 +109,34 @@ const AdminDashboardLayout = ({ children }: { children: ReactNode }) => {
           })}
         </nav>
 
-        {/* Bottom logout */}
-        <div className="p-3 border-t border-primary-foreground/10">
+        {/* Bottom admin card + logout */}
+        <div className="p-3 border-t border-primary-foreground/10 space-y-2">
+          {/* Admin mini profile */}
+          <Link
+            to="/admin/profile"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-colors group"
+          >
+            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-primary font-bold text-sm flex-shrink-0 overflow-hidden">
+              {adminPhoto
+                ? <img src={adminPhoto} alt="Admin" className="w-8 h-8 rounded-full object-cover" />
+                : adminInitial}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-primary-foreground truncate leading-tight">
+                {userData?.name || "Admin"}
+              </p>
+              <p className="text-[10px] text-secondary font-medium uppercase tracking-wide">Administrator</p>
+            </div>
+          </Link>
+
+          {/* Logout button */}
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/8 w-full transition-colors"
+            className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl text-sm font-semibold bg-destructive/15 text-destructive hover:bg-destructive hover:text-white transition-all"
           >
             <LogOut className="w-4 h-4" />
-            Logout
+            Sign Out
           </button>
         </div>
       </aside>
