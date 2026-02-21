@@ -1,45 +1,88 @@
+import { useState, useEffect } from "react";
 import AdminDashboardLayout from "@/components/AdminDashboardLayout";
-import { Star } from "lucide-react";
+import { Star, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const reviews = [
-  { id: 1, from: "Priya S.", to: "Rahul K.", rating: 5, comment: "Great room! Very clean and well-maintained.", date: "Feb 20, 2026", flagged: false },
-  { id: 2, from: "Unknown", to: "Sneha M.", rating: 1, comment: "FAKE LISTING! DO NOT TRUST!", date: "Feb 19, 2026", flagged: true },
-  { id: 3, from: "Amit D.", to: "Priya S.", rating: 4, comment: "Smooth transaction. Good communication.", date: "Feb 18, 2026", flagged: false },
-];
+import { collection, query, getDocs, orderBy, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const AdminReviews = () => {
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const ratingsRef = collection(db, "ratings");
+        const q = query(ratingsRef, orderBy("created_at", "desc"), limit(50));
+        const snapshot = await getDocs(q);
+        
+        const reviewsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        setReviews(reviewsData);
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReviews();
+  }, []);
+
+  if (loading) {
+    return (
+      <AdminDashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AdminDashboardLayout>
+    );
+  }
+
   return (
     <AdminDashboardLayout>
       <div className="max-w-4xl mx-auto space-y-6">
         <p className="text-sm text-muted-foreground">Monitor and moderate user reviews</p>
 
-        <div className="space-y-4">
-          {reviews.map((r) => (
-            <div key={r.id} className={`bg-card rounded-xl border p-5 shadow-card ${r.flagged ? "border-destructive/40" : "border-border"}`}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm">
-                  <span className="font-medium text-foreground">{r.from}</span>
-                  <span className="text-muted-foreground"> → </span>
-                  <span className="font-medium text-foreground">{r.to}</span>
+        {reviews.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No reviews found</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {reviews.map((r) => (
+              <div key={r.id} className={`bg-card rounded-xl border p-5 shadow-card ${r.status === "flagged" ? "border-destructive/40" : "border-border"}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm">
+                    <span className="font-medium text-foreground">{r.reviewer_id}</span>
+                    <span className="text-muted-foreground"> → </span>
+                    <span className="font-medium text-foreground">{r.reviewee_id}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {r.created_at?.toDate?.()?.toLocaleDateString() || 'N/A'}
+                  </span>
                 </div>
-                <span className="text-xs text-muted-foreground">{r.date}</span>
-              </div>
-              <div className="flex items-center gap-0.5 mb-2">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Star key={s} className={`w-3.5 h-3.5 ${s <= r.rating ? "text-secondary fill-secondary" : "text-muted"}`} />
-                ))}
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">{r.comment}</p>
-              {r.flagged && (
-                <div className="flex gap-2">
-                  <Button variant="destructive" size="sm">Remove Review</Button>
-                  <Button variant="ghost" size="sm">Dismiss Flag</Button>
+                <div className="flex items-center gap-0.5 mb-2">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className={`w-3.5 h-3.5 ${s <= r.stars ? "text-secondary fill-secondary" : "text-muted"}`} />
+                  ))}
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+                {r.review_text && (
+                  <p className="text-sm text-muted-foreground mb-3">{r.review_text}</p>
+                )}
+                {r.status === "flagged" && (
+                  <div className="flex gap-2">
+                    <Button variant="destructive" size="sm">Remove Review</Button>
+                    <Button variant="ghost" size="sm">Dismiss Flag</Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </AdminDashboardLayout>
   );

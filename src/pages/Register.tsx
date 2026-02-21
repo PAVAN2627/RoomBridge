@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Shield, Eye, EyeOff, ArrowRight, ArrowLeft } from "lucide-react";
 import { registerWithEmail, signInWithGoogle } from "@/lib/firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { CameraCapture } from "@/components/CameraCapture";
+import { auth } from "@/lib/firebase";
+import { updateUser, createUser, getUser } from "@/lib/firebase/users";
 
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -36,6 +39,35 @@ const Register = () => {
     selfie_file: null as File | null,
   });
 
+  // Check if user is already authenticated with Google
+  useEffect(() => {
+    const checkGoogleUser = async () => {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        // Check if user has completed registration
+        const userData = await getUser(currentUser.uid);
+        if (userData) {
+          // User already registered, redirect to dashboard
+          navigate('/dashboard');
+        } else {
+          // Google user needs to complete registration
+          setIsGoogleUser(true);
+          setFormData((prev) => ({
+            ...prev,
+            name: currentUser.displayName || "",
+            email: currentUser.email || "",
+          }));
+          toast({
+            title: "Complete Your Profile",
+            description: "Fill in the remaining details to finish registration.",
+          });
+        }
+      }
+    };
+    checkGoogleUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -46,7 +78,7 @@ const Register = () => {
   };
 
   const validateStep1 = () => {
-    if (!formData.name || !formData.age || !formData.email || !formData.phone || !formData.password) {
+    if (!formData.name || !formData.age || !formData.email || !formData.phone) {
       toast({ title: "Missing Information", description: "Please fill in all required fields.", variant: "destructive" });
       return false;
     }
@@ -54,7 +86,8 @@ const Register = () => {
       toast({ title: "Age Requirement", description: "You must be at least 18 years old.", variant: "destructive" });
       return false;
     }
-    if (formData.password.length < 6) {
+    // Skip password validation for Google users
+    if (!isGoogleUser && formData.password.length < 6) {
       toast({ title: "Weak Password", description: "Password must be at least 6 characters.", variant: "destructive" });
       return false;
     }
@@ -90,25 +123,136 @@ const Register = () => {
     }
     setLoading(true);
     try {
-      await registerWithEmail(formData.email, formData.password, {
-        name: formData.name,
-        age: parseInt(formData.age),
-        gender: formData.gender,
-        phone: formData.phone,
-        city: formData.city,
-        home_district: formData.home_district,
-        user_type: formData.user_type,
-      });
-      toast({ title: "Success!", description: "Account created. Complete verification." });
-      sessionStorage.setItem('pendingVerification', JSON.stringify({
-        profile_type: formData.profile_type,
-        college_name: formData.college_name,
-        course: formData.course,
-        year_of_study: formData.year_of_study,
-        company_name: formData.company_name,
-        job_role: formData.job_role,
-        id_type: formData.id_type,
-      }));
+      let userId: string;
+      
+      // Check if user is already authenticated via Google
+      const currentUser = auth.currentUser;
+      
+      if (currentUser) {
+        // User signed in with Google, use their existing auth
+        userId = currentUser.uid;
+        
+        // Create Firestore user document
+        await createUser(userId, {
+          name: formData.name,
+          age: parseInt(formData.age),
+          gender: formData.gender,
+          phone: formData.phone,
+          email: formData.email,
+          city: formData.city,
+          home_district: formData.home_district,
+          user_type: formData.user_type,
+          aadhaar_verified: false,
+          pan_verified: false,
+          verification_status: 'unverified',
+          verification_badges: [],
+        });
+      } else {
+        // Regular email/password registration
+        const result = await registerWithEmail(formData.email, formData.password, {
+          name: formData.name,
+          age: parseInt(formData.age),
+          gender: formData.gender,
+          phone: formData.phone,
+          city: formData.city,
+          home_district: formData.home_district,
+          user_type: formData.user_type,
+        });
+        userId = result.user.uid;
+      }
+
+      // Convert files to base64 strings with compression
+      const fileToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => {
+            const base64 = reader.result as string;
+            // Check if image is too large (>500KB base64 = ~375KB original)
+            if (base64.length > 500000) {
+              // Compress the image
+              const img = new Image();
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                
+                // Resize if too large
+                const maxDimension = 1024;
+                if (width > maxDimension || height > maxDimension) {
+                  if (width > height) {
+                    height = (height / width) * maxDimension;
+                    width = maxDimension;
+                  } else {
+                    width = (width / height) * maxDimension;
+                    height = maxDimension;
+                  }
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                
+                // Convert to JPEG with quality 0.7
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                resolve(compressedBase64);
+              };
+              img.onerror = reject;
+              img.src = base64;
+            } else {
+              resolve(base64);
+            }
+          };
+          reader.onerror = error => reject(error);
+        });
+      };
+
+      // Convert all files to base64
+      const updates: any = {
+        verification_status: "verified"
+      };
+
+      // Build verification badges array
+      const verificationBadges: string[] = [];
+
+      // Upload student/professional ID
+      if (formData.profile_type === "student" && formData.student_id_file) {
+        const studentIdBase64 = await fileToBase64(formData.student_id_file);
+        updates.college = formData.college_name;
+        updates.course = formData.course;
+        updates.year = parseInt(formData.year_of_study);
+        updates.student_id_url = studentIdBase64;
+        verificationBadges.push("student");
+      } else if (formData.profile_type === "professional" && formData.company_id_file) {
+        const companyIdBase64 = await fileToBase64(formData.company_id_file);
+        updates.company = formData.company_name;
+        updates.role = formData.job_role;
+        updates.professional_id_url = companyIdBase64;
+        verificationBadges.push("professional");
+      }
+
+      // Upload ID proof (Aadhaar/PAN)
+      const idProofBase64 = await fileToBase64(formData.id_file);
+      if (formData.id_type === "aadhaar") {
+        updates.aadhaar_verified = true;
+      } else {
+        updates.pan_verified = true;
+      }
+      verificationBadges.push("identity");
+
+      // Upload selfie
+      const selfieBase64 = await fileToBase64(formData.selfie_file);
+      updates.selfie_url = selfieBase64;
+      verificationBadges.push("selfie");
+
+      // Add verification badges
+      updates.verification_badges = verificationBadges;
+
+      // Update user document with all data
+      await updateUser(userId, updates);
+
+      toast({ title: "Success!", description: "Account created successfully. All verifications complete!" });
       navigate('/dashboard/profile');
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to create account.", variant: "destructive" });
@@ -120,9 +264,23 @@ const Register = () => {
   const handleGoogleSignUp = async () => {
     setLoading(true);
     try {
-      await signInWithGoogle();
-      toast({ title: "Success!", description: "Account created. Complete your profile." });
-      navigate('/dashboard/profile');
+      const result = await signInWithGoogle();
+      
+      // Pre-fill form with Google data
+      setFormData({
+        ...formData,
+        name: result.user.displayName || "",
+        email: result.user.email || "",
+      });
+      
+      setIsGoogleUser(true);
+      
+      toast({ 
+        title: "Google Sign-In Successful!", 
+        description: "Please complete your profile to continue." 
+      });
+      
+      // Stay on step 1 but hide password field
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to sign up.", variant: "destructive" });
     } finally {
@@ -189,7 +347,7 @@ const Register = () => {
               <>
                 <div>
                   <label className="text-sm font-medium text-foreground block mb-1.5">Full Name</label>
-                  <input type="text" name="name" placeholder="Enter your full name" value={formData.name} onChange={handleChange} required disabled={loading} className="w-full px-4 py-3 rounded-xl bg-muted border-0 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50" />
+                  <input type="text" name="name" placeholder="Enter your full name" value={formData.name} onChange={handleChange} required disabled={loading || isGoogleUser} className="w-full px-4 py-3 rounded-xl bg-muted border-0 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -207,21 +365,28 @@ const Register = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground block mb-1.5">Email</label>
-                  <input type="email" name="email" placeholder="you@example.com" value={formData.email} onChange={handleChange} required disabled={loading} className="w-full px-4 py-3 rounded-xl bg-muted border-0 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50" />
+                  <input type="email" name="email" placeholder="you@example.com" value={formData.email} onChange={handleChange} required disabled={loading || isGoogleUser} className="w-full px-4 py-3 rounded-xl bg-muted border-0 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50" />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground block mb-1.5">Phone</label>
                   <input type="tel" name="phone" placeholder="9876543210" value={formData.phone} onChange={handleChange} required pattern="[0-9]{10}" disabled={loading} className="w-full px-4 py-3 rounded-xl bg-muted border-0 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50" />
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground block mb-1.5">Password</label>
-                  <div className="relative">
-                    <input type={showPassword ? "text" : "password"} name="password" placeholder="Create password" value={formData.password} onChange={handleChange} required minLength={6} disabled={loading} className="w-full px-4 py-3 rounded-xl bg-muted border-0 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-10 disabled:opacity-50" />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} disabled={loading} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                {!isGoogleUser && (
+                  <div>
+                    <label className="text-sm font-medium text-foreground block mb-1.5">Password</label>
+                    <div className="relative">
+                      <input type={showPassword ? "text" : "password"} name="password" placeholder="Create password" value={formData.password} onChange={handleChange} required minLength={6} disabled={loading} className="w-full px-4 py-3 rounded-xl bg-muted border-0 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-10 disabled:opacity-50" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} disabled={loading} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
+                {isGoogleUser && (
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm text-primary">
+                    ✓ Signed in with Google. Complete the remaining steps to finish registration.
+                  </div>
+                )}
                 <Button type="button" onClick={handleNext} variant="action" size="lg" className="w-full" disabled={loading}>
                   Next <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
@@ -357,7 +522,7 @@ const Register = () => {
             )}
           </form>
 
-          {step === 1 && (
+          {step === 1 && !isGoogleUser && (
             <>
               <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
@@ -372,7 +537,7 @@ const Register = () => {
                 </svg>
                 {loading ? "Connecting..." : "Continue with Google"}
               </Button>
-              <p className="text-xs text-center text-muted-foreground">Google sign-up requires profile completion</p>
+              <p className="text-xs text-center text-muted-foreground">Complete all 3 steps after Google sign-in</p>
             </>
           )}
 

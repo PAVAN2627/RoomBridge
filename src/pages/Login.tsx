@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Shield, Eye, EyeOff, User, UserCog, ArrowLeft } from "lucide-react";
 import { signInWithGoogle, signInWithEmail } from "@/lib/firebase/auth";
 import { useToast } from "@/hooks/use-toast";
+import { getUser } from "@/lib/firebase/users";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -18,12 +19,22 @@ const Login = () => {
     setLoading(true);
     
     try {
-      await signInWithEmail(email, password);
+      const result = await signInWithEmail(email, password);
+      
+      // Check if user is admin
+      const userData = await getUser(result.user.uid);
+      
       toast({
         title: "Success!",
         description: "You have been logged in successfully.",
       });
-      navigate('/dashboard');
+      
+      // Redirect based on role
+      if (userData?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -39,12 +50,31 @@ const Login = () => {
     setLoading(true);
     
     try {
-      await signInWithGoogle();
-      toast({
-        title: "Success!",
-        description: "You have been logged in with Google.",
-      });
-      navigate('/dashboard');
+      const result = await signInWithGoogle();
+      
+      // Check if user has completed registration
+      const userData = await getUser(result.user.uid);
+      
+      if (!userData) {
+        // User signed in with Google but hasn't completed registration
+        toast({
+          title: "Complete Registration",
+          description: "Please complete your profile to continue.",
+        });
+        navigate('/register');
+      } else {
+        toast({
+          title: "Success!",
+          description: "You have been logged in with Google.",
+        });
+        
+        // Redirect based on role
+        if (userData.role === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
+      }
     } catch (error: any) {
       toast({
         title: "Error",

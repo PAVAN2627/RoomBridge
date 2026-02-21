@@ -21,27 +21,17 @@ export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
   
-  // Check if user document exists, if not create one
+  // Check if user document exists
   const existingUser = await getUser(result.user.uid);
   
-  if (!existingUser) {
-    // Create user document for new Google sign-in
-    await createUser(result.user.uid, {
-      name: result.user.displayName || 'User',
-      age: 18, // Default, user should update
-      gender: 'other', // Default, user should update
-      phone: result.user.phoneNumber || '', // Will need to be updated
-      email: result.user.email || '',
-      city: '', // User should update
-      home_district: '', // User should update
-      user_type: 'both',
-      aadhaar_verified: false,
-      pan_verified: false,
-      verification_status: 'unverified',
-      verification_badges: [],
-    });
+  // Only create minimal user document if this is a returning user
+  // New users will complete registration form
+  if (existingUser) {
+    return result;
   }
   
+  // For new Google users, we'll let them complete the registration form
+  // Don't create user document yet
   return result;
 }
 

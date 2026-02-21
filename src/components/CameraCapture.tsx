@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, X, RotateCcw } from "lucide-react";
 
@@ -12,37 +12,35 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [cameraReady, setCameraReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
   const startCamera = useCallback(async () => {
     setLoading(true);
-    setCameraReady(false);
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: 640, height: 480 },
+        video: { 
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        },
         audio: false,
       });
       setStream(mediaStream);
       setShowCamera(true);
-      
-      // Wait for video to be ready
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play().then(() => {
-            setCameraReady(true);
-            setLoading(false);
-          });
-        };
-      }
+      setLoading(false);
     } catch (error: any) {
       console.error("Error accessing camera:", error);
       let errorMessage = "Unable to access camera. ";
       
       if (error.name === "NotAllowedError") {
-        errorMessage += "Camera permission was denied. Please:\n1. Click the camera icon in your browser's address bar\n2. Allow camera access\n3. Refresh the page and try again";
+        errorMessage += "Camera permission was denied. Please allow camera access and try again.";
       } else if (error.name === "NotFoundError") {
         errorMessage += "No camera found on this device.";
       } else if (error.name === "NotReadableError") {
@@ -67,25 +65,21 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
   }, [stream]);
 
   const capturePhoto = useCallback(() => {
-    if (videoRef.current && canvasRef.current) {
+    if (videoRef.current && canvasRef.current && stream) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
-      // Make sure video is playing and has dimensions
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = canvas.toDataURL("image/jpeg", 0.9);
-          setCapturedImage(imageData);
-        }
-      } else {
-        alert("Camera is still loading. Please wait a moment and try again.");
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL("image/jpeg", 0.9);
+        setCapturedImage(imageData);
       }
     }
-  }, []);
+  }, [stream]);
 
   const confirmPhoto = useCallback(() => {
     if (capturedImage && canvasRef.current) {
@@ -95,7 +89,7 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
           onCapture(file);
           stopCamera();
         }
-      }, "image/jpeg", 0.8);
+      }, "image/jpeg", 0.9);
     }
   }, [capturedImage, onCapture, stopCamera]);
 
@@ -116,22 +110,21 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
 
           <div className="relative bg-black rounded-lg overflow-hidden aspect-video flex items-center justify-center">
             {!capturedImage ? (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-                {!cameraReady && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                    <div className="text-white text-sm">Loading camera...</div>
-                  </div>
-                )}
-              </>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+                style={{ transform: 'scaleX(-1)' }}
+              />
             ) : (
-              <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
+              <img 
+                src={capturedImage} 
+                alt="Captured" 
+                className="w-full h-full object-cover"
+                style={{ transform: 'scaleX(-1)' }}
+              />
             )}
             <canvas ref={canvasRef} className="hidden" />
           </div>
@@ -139,21 +132,21 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
           <div className="flex gap-3">
             {!capturedImage ? (
               <>
-                <Button onClick={stopCamera} variant="outline" className="flex-1">
+                <Button type="button" onClick={stopCamera} variant="outline" className="flex-1">
                   Cancel
                 </Button>
-                <Button onClick={capturePhoto} variant="action" className="flex-1" disabled={!cameraReady}>
+                <Button type="button" onClick={capturePhoto} variant="action" className="flex-1">
                   <Camera className="w-4 h-4 mr-2" />
-                  {cameraReady ? "Capture" : "Loading..."}
+                  Capture
                 </Button>
               </>
             ) : (
               <>
-                <Button onClick={retakePhoto} variant="outline" className="flex-1">
+                <Button type="button" onClick={retakePhoto} variant="outline" className="flex-1">
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Retake
                 </Button>
-                <Button onClick={confirmPhoto} variant="action" className="flex-1">
+                <Button type="button" onClick={confirmPhoto} variant="action" className="flex-1">
                   Use Photo
                 </Button>
               </>

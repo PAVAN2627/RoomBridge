@@ -48,7 +48,7 @@ export async function createUser(
  */
 export async function updateUser(
   userId: string,
-  updates: Partial<Omit<UserDocument, 'user_id' | 'created_at' | 'updated_at' | 'verification_status' | 'verification_badges' | 'ban_status' | 'ban_reason' | 'ban_expires_at'>>
+  updates: Partial<Omit<UserDocument, 'user_id' | 'created_at' | 'updated_at' | 'ban_status' | 'ban_reason' | 'ban_expires_at'>>
 ): Promise<void> {
   const userRef = doc(db, 'users', userId);
   

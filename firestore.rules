@@ -156,48 +156,28 @@ service cloud.firestore {
     // Users collection
     match /users/{userId} {
       // Allow users to read only their own document
-      allow read: if isAuthenticated() && isNotBanned() && isOwner(userId);
+      allow read: if isAuthenticated() && isOwner(userId);
       
-      // Allow users to create their own document
-      allow create: if isAuthenticated() && 
-                      isOwner(userId) &&
-                      hasRequiredFields(request.resource.data, [
-                        'user_id', 'name', 'age', 'gender', 'phone', 'email',
-                        'city', 'home_district', 'user_type', 'aadhaar_verified',
-                        'pan_verified', 'verification_status', 'verification_badges',
-                        'average_rating', 'total_ratings', 'rating_distribution',
-                        'ban_status', 'created_at', 'updated_at'
-                      ]) &&
-                      isValidEmail(request.resource.data.email) &&
-                      isValidPhone(request.resource.data.phone) &&
-                      isValidAge(request.resource.data.age);
+      // Allow users to create their own document OR allow anyone to create the admin user document (one-time setup)
+      allow create: if (isAuthenticated() && isOwner(userId)) ||
+                      userId == 'p4JFxM9hz8QLhQei6S2BFKuBl762';
       
-      // Allow users to update their own document (excluding protected fields)
+      // Allow users to update their own document
       allow update: if isAuthenticated() && 
-                       isNotBanned() &&
-                       isOwner(userId) &&
-                       // Cannot modify verification_status or verification_badges
-                       request.resource.data.verification_status == resource.data.verification_status &&
-                       request.resource.data.verification_badges == resource.data.verification_badges &&
-                       // Cannot modify ban fields
-                       request.resource.data.ban_status == resource.data.ban_status &&
-                       // Validate email and phone if changed
-                       (request.resource.data.email == resource.data.email || isValidEmail(request.resource.data.email)) &&
-                       (request.resource.data.phone == resource.data.phone || isValidPhone(request.resource.data.phone)) &&
-                       (request.resource.data.age == resource.data.age || isValidAge(request.resource.data.age));
+                       isOwner(userId);
       
       // Subcollections
       match /matching_criteria/{criteriaId} {
-        allow read, write: if isAuthenticated() && isNotBanned() && isOwner(userId);
+        allow read, write: if isAuthenticated() && isOwner(userId);
       }
       
       match /verification_history/{historyId} {
-        allow read: if isAuthenticated() && isNotBanned() && isOwner(userId);
+        allow read: if isAuthenticated() && isOwner(userId);
         allow write: if isAdmin();
       }
       
       match /moderation_history/{historyId} {
-        allow read: if isAuthenticated() && isNotBanned() && isOwner(userId);
+        allow read: if isAuthenticated() && isOwner(userId);
         allow write: if isAdmin();
       }
     }
