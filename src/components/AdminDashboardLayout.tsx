@@ -65,7 +65,7 @@ const AdminDashboardLayout = ({ children }: { children: ReactNode }) => {
             <ShieldCheck className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <span className="font-display text-lg font-bold text-primary-foreground block leading-tight">RoomMatch</span>
+            <span className="font-display text-lg font-bold text-primary-foreground block leading-tight">RoomBridge</span>
             <span className="text-[10px] text-secondary font-semibold uppercase tracking-wider">Admin Panel</span>
           </div>
         </div>
