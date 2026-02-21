@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Firebase
+*-firebase-adminsdk-*.json
+.firebase/
+firebase-data/
+.firebaserc.local

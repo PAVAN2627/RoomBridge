@@ -1,0 +1,417 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    /**
+     * Check if user is authenticated
+     */
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    /**
+     * Check if authenticated user is the owner of the resource
+     */
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    /**
+     * Check if authenticated user is an admin
+     */
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    /**
+     * Check if user is not banned
+     */
+    function isNotBanned() {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return user.ban_status != 'active' || 
+             user.ban_expires_at < request.time;
+    }
+    
+    /**
+     * Validate email format
+     */
+    function isValidEmail(email) {
+      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+    
+    /**
+     * Validate phone format (10 digits)
+     */
+    function isValidPhone(phone) {
+      return phone.matches('^[0-9]{10}$');
+    }
+    
+    /**
+     * Validate age range (18-100)
+     */
+    function isValidAge(age) {
+      return age is int && age >= 18 && age <= 100;
+    }
+    
+    /**
+     * Validate coordinates
+     */
+    function isValidCoordinates(lat, lng) {
+      return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    }
+    
+    /**
+     * Validate positive amount
+     */
+    function isPositiveAmount(amount) {
+      return amount is number && amount > 0;
+    }
+    
+    /**
+     * Validate listing type enum
+     */
+    function isValidListingType(type) {
+      return type in ['long_term', 'pg', 'flatmate', 'short_stay', 'emergency'];
+    }
+    
+    /**
+     * Validate request type enum
+     */
+    function isValidRequestType(type) {
+      return type in ['normal', 'emergency'];
+    }
+    
+    /**
+     * Validate listing status enum
+     */
+    function isValidListingStatus(status) {
+      return status in ['active', 'inactive', 'rented', 'deleted'];
+    }
+    
+    /**
+     * Validate request status enum
+     */
+    function isValidRequestStatus(status) {
+      return status in ['active', 'fulfilled', 'expired', 'deleted'];
+    }
+    
+    /**
+     * Validate verification type enum
+     */
+    function isValidVerificationType(type) {
+      return type in ['student', 'professional', 'aadhaar', 'pan', 'selfie'];
+    }
+    
+    /**
+     * Validate report type enum
+     */
+    function isValidReportType(type) {
+      return type in ['fake_identity', 'broker', 'scam', 'harassment'];
+    }
+    
+    /**
+     * Validate stars rating (1-5)
+     */
+    function isValidStars(stars) {
+      return stars is int && stars >= 1 && stars <= 5;
+    }
+    
+    /**
+     * Validate images array size (max 10)
+     */
+    function isValidImagesArray(images) {
+      return images is list && images.size() <= 10;
+    }
+    
+    /**
+     * Validate participant IDs array (exactly 2 unique IDs)
+     */
+    function isValidParticipantIds(ids) {
+      return ids is list && ids.size() == 2 && ids[0] != ids[1];
+    }
+    
+    /**
+     * Check if user is a participant in a chat
+     */
+    function isParticipant(participantIds) {
+      return isAuthenticated() && request.auth.uid in participantIds;
+    }
+    
+    /**
+     * Validate required fields are present
+     */
+    function hasRequiredFields(data, fields) {
+      return fields.toSet().difference(data.keys().toSet()).size() == 0;
+    }
+    
+    // ============================================
+    // COLLECTION RULES
+    // ============================================
+    
+    // Users collection
+    match /users/{userId} {
+      // Allow users to read only their own document
+      allow read: if isAuthenticated() && isNotBanned() && isOwner(userId);
+      
+      // Allow users to create their own document
+      allow create: if isAuthenticated() && 
+                      isOwner(userId) &&
+                      hasRequiredFields(request.resource.data, [
+                        'user_id', 'name', 'age', 'gender', 'phone', 'email',
+                        'city', 'home_district', 'user_type', 'aadhaar_verified',
+                        'pan_verified', 'verification_status', 'verification_badges',
+                        'average_rating', 'total_ratings', 'rating_distribution',
+                        'ban_status', 'created_at', 'updated_at'
+                      ]) &&
+                      isValidEmail(request.resource.data.email) &&
+                      isValidPhone(request.resource.data.phone) &&
+                      isValidAge(request.resource.data.age);
+      
+      // Allow users to update their own document (excluding protected fields)
+      allow update: if isAuthenticated() && 
+                       isNotBanned() &&
+                       isOwner(userId) &&
+                       // Cannot modify verification_status or verification_badges
+                       request.resource.data.verification_status == resource.data.verification_status &&
+                       request.resource.data.verification_badges == resource.data.verification_badges &&
+                       // Cannot modify ban fields
+                       request.resource.data.ban_status == resource.data.ban_status &&
+                       // Validate email and phone if changed
+                       (request.resource.data.email == resource.data.email || isValidEmail(request.resource.data.email)) &&
+                       (request.resource.data.phone == resource.data.phone || isValidPhone(request.resource.data.phone)) &&
+                       (request.resource.data.age == resource.data.age || isValidAge(request.resource.data.age));
+      
+      // Subcollections
+      match /matching_criteria/{criteriaId} {
+        allow read, write: if isAuthenticated() && isNotBanned() && isOwner(userId);
+      }
+      
+      match /verification_history/{historyId} {
+        allow read: if isAuthenticated() && isNotBanned() && isOwner(userId);
+        allow write: if isAdmin();
+      }
+      
+      match /moderation_history/{historyId} {
+        allow read: if isAuthenticated() && isNotBanned() && isOwner(userId);
+        allow write: if isAdmin();
+      }
+    }
+    
+    // Verifications collection - Admin only access
+    match /verifications/{verificationId} {
+      // Only admins can read and write verification documents
+      allow read, write: if isAdmin();
+      
+      // Users can create their own verification submissions
+      allow create: if isAuthenticated() && 
+                       isNotBanned() &&
+                       isOwner(request.resource.data.user_id) &&
+                       hasRequiredFields(request.resource.data, [
+                         'verification_id', 'user_id', 'verification_type',
+                         'document_url', 'status', 'submitted_at', 'created_at'
+                       ]) &&
+                       isValidVerificationType(request.resource.data.verification_type) &&
+                       request.resource.data.status == 'pending';
+    }
+    
+    // Listings collection
+    match /listings/{listingId} {
+      // Allow users to read active listings
+      allow read: if isAuthenticated() && 
+                     isNotBanned() && 
+                     resource.data.status == 'active';
+      
+      // Allow users to create their own listings
+      allow create: if isAuthenticated() && 
+                       isNotBanned() &&
+                       isOwner(request.resource.data.poster_id) &&
+                       hasRequiredFields(request.resource.data, [
+                         'listing_id', 'poster_id', 'title', 'description',
+                         'listing_type', 'rent_amount', 'deposit_amount',
+                         'available_from', 'location', 'city', 'latitude',
+                         'longitude', 'amenities', 'preferences', 'images',
+                         'status', 'created_at', 'updated_at'
+                       ]) &&
+                       isValidListingType(request.resource.data.listing_type) &&
+                       isValidListingStatus(request.resource.data.status) &&
+                       isPositiveAmount(request.resource.data.rent_amount) &&
+                       isValidCoordinates(request.resource.data.latitude, request.resource.data.longitude) &&
+                       isValidImagesArray(request.resource.data.images);
+      
+      // Allow users to update and delete their own listings
+      allow update, delete: if isAuthenticated() && 
+                               isNotBanned() &&
+                               isOwner(resource.data.poster_id) &&
+                               (request.resource == null || (
+                                 isValidListingType(request.resource.data.listing_type) &&
+                                 isValidListingStatus(request.resource.data.status) &&
+                                 isPositiveAmount(request.resource.data.rent_amount) &&
+                                 isValidCoordinates(request.resource.data.latitude, request.resource.data.longitude) &&
+                                 isValidImagesArray(request.resource.data.images)
+                               ));
+    }
+    
+    // Room Requests collection
+    match /room_requests/{requestId} {
+      // Allow users to read active requests
+      allow read: if isAuthenticated() && 
+                     isNotBanned() && 
+                     resource.data.status == 'active';
+      
+      // Allow users to create their own requests
+      allow create: if isAuthenticated() && 
+                       isNotBanned() &&
+                       isOwner(request.resource.data.searcher_id) &&
+                       hasRequiredFields(request.resource.data, [
+                         'request_id', 'searcher_id', 'title', 'description',
+                         'needed_from', 'needed_until', 'request_type',
+                         'budget_min', 'budget_max', 'city', 'preferences',
+                         'status', 'created_at', 'updated_at'
+                       ]) &&
+                       isValidRequestType(request.resource.data.request_type) &&
+                       isValidRequestStatus(request.resource.data.status) &&
+                       isPositiveAmount(request.resource.data.budget_min) &&
+                       isPositiveAmount(request.resource.data.budget_max);
+      
+      // Allow users to update and delete their own requests
+      allow update, delete: if isAuthenticated() && 
+                               isNotBanned() &&
+                               isOwner(resource.data.searcher_id) &&
+                               (request.resource == null || (
+                                 isValidRequestType(request.resource.data.request_type) &&
+                                 isValidRequestStatus(request.resource.data.status) &&
+                                 isPositiveAmount(request.resource.data.budget_min) &&
+                                 isPositiveAmount(request.resource.data.budget_max)
+                               ));
+    }
+    
+    // Chats collection
+    match /chats/{chatId} {
+      // Allow users to read chats where they are participants
+      allow read: if isAuthenticated() && 
+                     isNotBanned() && 
+                     isParticipant(resource.data.participant_ids);
+      
+      // Allow users to create chats where they are a participant
+      allow create: if isAuthenticated() && 
+                       isNotBanned() &&
+                       isParticipant(request.resource.data.participant_ids) &&
+                       isValidParticipantIds(request.resource.data.participant_ids) &&
+                       hasRequiredFields(request.resource.data, [
+                         'chat_id', 'participant_ids', 'status',
+                         'created_at', 'last_message_at'
+                       ]);
+      
+      // Allow participants to update chat (e.g., blocking)
+      allow update: if isAuthenticated() && 
+                       isNotBanned() &&
+                       isParticipant(resource.data.participant_ids);
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Allow participants to read messages
+        allow read: if isAuthenticated() && 
+                       isNotBanned() && 
+                       isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data.participant_ids);
+        
+        // Allow participants to create messages
+        allow create: if isAuthenticated() && 
+                         isNotBanned() &&
+                         isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data.participant_ids) &&
+                         isOwner(request.resource.data.sender_id) &&
+                         hasRequiredFields(request.resource.data, [
+                           'message_id', 'sender_id', 'text',
+                           'message_type', 'read_status', 'timestamp'
+                         ]);
+        
+        // Allow message recipient to update read status
+        allow update: if isAuthenticated() && 
+                         isNotBanned() &&
+                         isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data.participant_ids);
+      }
+    }
+    
+    // Ratings collection
+    match /ratings/{ratingId} {
+      // Allow all authenticated users to read ratings
+      allow read: if isAuthenticated() && isNotBanned();
+      
+      // Allow users to create ratings (with uniqueness enforced by client/functions)
+      allow create: if isAuthenticated() && 
+                       isNotBanned() &&
+                       isOwner(request.resource.data.reviewer_id) &&
+                       hasRequiredFields(request.resource.data, [
+                         'rating_id', 'reviewer_id', 'reviewee_id',
+                         'stars', 'status', 'created_at'
+                       ]) &&
+                       isValidStars(request.resource.data.stars) &&
+                       request.resource.data.status == 'active';
+      
+      // Only admins can update ratings (for moderation)
+      allow update: if isAdmin();
+    }
+    
+    // Reports collection
+    match /reports/{reportId} {
+      // Allow users to create reports (write-once)
+      allow create: if isAuthenticated() && 
+                       isNotBanned() &&
+                       isOwner(request.resource.data.reporter_id) &&
+                       hasRequiredFields(request.resource.data, [
+                         'report_id', 'reporter_id', 'reported_user_id',
+                         'report_type', 'description', 'evidence_urls',
+                         'status', 'created_at'
+                       ]) &&
+                       isValidReportType(request.resource.data.report_type) &&
+                       request.resource.data.status == 'pending';
+      
+      // Only admins can read and update reports
+      allow read, update: if isAdmin();
+    }
+    
+    // Match Scores collection (read-only for users, written by Cloud Functions)
+    match /match_scores/{matchId} {
+      allow read: if isAuthenticated() && isNotBanned();
+      allow write: if false; // Only Cloud Functions can write
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Allow users to read their own notifications
+      allow read: if isAuthenticated() && 
+                     isNotBanned() && 
+                     isOwner(resource.data.user_id);
+      
+      // Allow users to update their own notifications (mark as read)
+      allow update: if isAuthenticated() && 
+                       isNotBanned() && 
+                       isOwner(resource.data.user_id);
+      
+      // Only Cloud Functions can create/delete notifications
+      allow create, delete: if false;
+    }
+    
+    // Analytics collection (write-only for users, read by admins)
+    match /analytics/{eventId} {
+      allow create: if isAuthenticated() && 
+                       isNotBanned() &&
+                       isOwner(request.resource.data.user_id);
+      allow read: if isAdmin();
+    }
+    
+    // Daily Stats collection (admin only)
+    match /daily_stats/{date} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Default deny all access for other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

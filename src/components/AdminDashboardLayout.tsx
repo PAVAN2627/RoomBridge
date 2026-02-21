@@ -1,10 +1,12 @@
 import { ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ShieldCheck, LayoutDashboard, Users, Home, FileText,
   CheckSquare, MessageCircle, Star, Flag, Settings, LogOut, Menu, Bell
 } from "lucide-react";
 import { useState } from "react";
+import { signOut } from "@/lib/firebase/auth";
+import { useToast } from "@/hooks/use-toast";
 
 const adminMenuItems = [
   { icon: LayoutDashboard, label: "Dashboard Overview", to: "/admin" },
@@ -20,9 +22,28 @@ const adminMenuItems = [
 
 const AdminDashboardLayout = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const pageTitle = adminMenuItems.find((item) => item.to === location.pathname)?.label || "Admin";
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Logged out",
+        description: "You have been logged out successfully.",
+      });
+      navigate('/');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen flex bg-muted/30">
@@ -79,13 +100,13 @@ const AdminDashboardLayout = ({ children }: { children: ReactNode }) => {
 
         {/* Bottom */}
         <div className="p-3 border-t border-primary-foreground/10">
-          <Link
-            to="/"
+          <button
+            onClick={handleLogout}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/8 w-full transition-colors"
           >
             <LogOut className="w-4 h-4" />
             Logout
-          </Link>
+          </button>
         </div>
       </aside>
 

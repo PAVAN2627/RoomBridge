@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -34,41 +36,43 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
           {/* User Dashboard */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/browse" element={<BrowseListings />} />
-          <Route path="/dashboard/requests" element={<RoomRequests />} />
-          <Route path="/dashboard/post" element={<PostListing />} />
-          <Route path="/dashboard/post-request" element={<PostRoomRequest />} />
-          <Route path="/dashboard/messages" element={<Messages />} />
-          <Route path="/dashboard/ratings" element={<MyRatings />} />
-          <Route path="/dashboard/profile" element={<ProfileVerification />} />
-          <Route path="/dashboard/settings" element={<UserSettings />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/browse" element={<ProtectedRoute><BrowseListings /></ProtectedRoute>} />
+          <Route path="/dashboard/requests" element={<ProtectedRoute><RoomRequests /></ProtectedRoute>} />
+          <Route path="/dashboard/post" element={<ProtectedRoute><PostListing /></ProtectedRoute>} />
+          <Route path="/dashboard/post-request" element={<ProtectedRoute><PostRoomRequest /></ProtectedRoute>} />
+          <Route path="/dashboard/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+          <Route path="/dashboard/ratings" element={<ProtectedRoute><MyRatings /></ProtectedRoute>} />
+          <Route path="/dashboard/profile" element={<ProtectedRoute><ProfileVerification /></ProtectedRoute>} />
+          <Route path="/dashboard/settings" element={<ProtectedRoute><UserSettings /></ProtectedRoute>} />
 
           {/* Admin Dashboard */}
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
-          <Route path="/admin/listings" element={<AdminListings />} />
-          <Route path="/admin/requests" element={<AdminRequests />} />
-          <Route path="/admin/verifications" element={<AdminVerifications />} />
-          <Route path="/admin/reported-chats" element={<AdminReportedChats />} />
-          <Route path="/admin/reviews" element={<AdminReviews />} />
-          <Route path="/admin/reports" element={<AdminReports />} />
-          <Route path="/admin/settings" element={<AdminSettings />} />
+          <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
+          <Route path="/admin/listings" element={<ProtectedRoute requireAdmin><AdminListings /></ProtectedRoute>} />
+          <Route path="/admin/requests" element={<ProtectedRoute requireAdmin><AdminRequests /></ProtectedRoute>} />
+          <Route path="/admin/verifications" element={<ProtectedRoute requireAdmin><AdminVerifications /></ProtectedRoute>} />
+          <Route path="/admin/reported-chats" element={<ProtectedRoute requireAdmin><AdminReportedChats /></ProtectedRoute>} />
+          <Route path="/admin/reviews" element={<ProtectedRoute requireAdmin><AdminReviews /></ProtectedRoute>} />
+          <Route path="/admin/reports" element={<ProtectedRoute requireAdmin><AdminReports /></ProtectedRoute>} />
+          <Route path="/admin/settings" element={<ProtectedRoute requireAdmin><AdminSettings /></ProtectedRoute>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

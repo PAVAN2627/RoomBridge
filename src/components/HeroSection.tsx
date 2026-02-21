@@ -1,10 +1,13 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Search, Home } from "lucide-react";
+import { Search, Home, LayoutDashboard } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import heroImage from "@/assets/hero-illustration.png";
 
 const HeroSection = () => {
+  const { user } = useAuth();
+  
   return (
     <section className="relative pt-24 pb-16 md:pt-32 md:pb-24 overflow-hidden">
       {/* Subtle gradient background */}
@@ -36,18 +39,37 @@ const HeroSection = () => {
             </p>
 
             <div className="flex flex-wrap gap-4">
-              <Button variant="action" size="lg" className="text-base px-8" asChild>
-                <Link to="/browse">
-                  <Search className="w-4 h-4 mr-2" />
-                  Browse Rooms
-                </Link>
-              </Button>
-              <Button variant="brand-outline" size="lg" className="text-base px-8" asChild>
-                <Link to="/post">
-                  <Home className="w-4 h-4 mr-2" />
-                  Post Room
-                </Link>
-              </Button>
+              {user ? (
+                <>
+                  <Button variant="action" size="lg" className="text-base px-8" asChild>
+                    <Link to="/dashboard">
+                      <LayoutDashboard className="w-4 h-4 mr-2" />
+                      Go to Dashboard
+                    </Link>
+                  </Button>
+                  <Button variant="brand-outline" size="lg" className="text-base px-8" asChild>
+                    <Link to="/dashboard/browse">
+                      <Search className="w-4 h-4 mr-2" />
+                      Browse Rooms
+                    </Link>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="action" size="lg" className="text-base px-8" asChild>
+                    <Link to="/register">
+                      <Search className="w-4 h-4 mr-2" />
+                      Get Started
+                    </Link>
+                  </Button>
+                  <Button variant="brand-outline" size="lg" className="text-base px-8" asChild>
+                    <Link to="/login">
+                      <Home className="w-4 h-4 mr-2" />
+                      Log In
+                    </Link>
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Trust badges */}
