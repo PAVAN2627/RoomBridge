@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import UserDashboardLayout from "@/components/UserDashboardLayout";
-import { Clock, MapPin, Loader2, MessageCircle, AlertTriangle, User, Star, Zap } from "lucide-react";
+import { Clock, MapPin, Loader2, MessageCircle, AlertTriangle, User, Star, Zap, Search, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 import { collection, query, where, onSnapshot, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { UserDocument } from "@/lib/firebase/types";
@@ -17,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { matchRequestScore } from "@/lib/matchScore";
+import { getCurrentLocation, calculateDistance } from "@/lib/geocoding";
 
 // Extended type that matches what's actually stored in Firestore
 interface RoomRequest {
@@ -28,6 +30,8 @@ interface RoomRequest {
   duration?: string;
   location?: string;
   city: string;
+  latitude?: number;
+  longitude?: number;
   budget_min: number;
   budget_max: number;
   status: string;
@@ -47,6 +51,7 @@ const RoomRequests = () => {
   const { user, userData } = useAuth();
   const { toast } = useToast();
   const [requests, setRequests] = useState<RoomRequest[]>([]);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [sortByMatch, setSortByMatch] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<RoomRequest | null>(null);
@@ -73,6 +78,24 @@ const RoomRequests = () => {
       setMessagingUser(null);
     }
   };
+
+  // Automatically get user's current location on component mount
+  useEffect(() => {
+    const fetchUserLocation = async () => {
+      try {
+        const location = await getCurrentLocation();
+        if (location) {
+          setUserLocation(location);
+          console.log("User location detected:", location);
+        }
+      } catch (error) {
+        console.error("Error getting user location:", error);
+        // Silently fail - location is optional
+      }
+    };
+
+    fetchUserLocation();
+  }, []);
 
   useEffect(() => {
     // Real-time listener for ALL active room requests (simplified query while index builds)
@@ -152,149 +175,317 @@ const RoomRequests = () => {
   return (
     <UserDashboardLayout>
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <p className="text-sm text-muted-foreground">People looking for rooms</p>
-          <div className="flex gap-2 items-center">
-            {userData && (
-              <button
-                onClick={() => setSortByMatch((v) => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
-                  sortByMatch
-                    ? "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30"
-                    : "bg-muted text-muted-foreground border-border hover:bg-accent"
-                }`}
-              >
-                <Zap className="w-3 h-3" />
-                {sortByMatch ? "Sorted by Match" : "Sort by Match"}
-              </button>
-            )}
-            <Button variant="action" size="sm" onClick={() => navigate("/dashboard/post-request")}>
-              Post Your Request
-            </Button>
+        {/* Header with gradient search bar */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
+          <div className="relative bg-card/80 backdrop-blur-sm border rounded-2xl p-6 shadow-lg">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <p className="text-sm text-muted-foreground mb-2">People looking for rooms</p>
+                <div className="flex gap-2 items-center flex-wrap">
+                  {userData && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setSortByMatch((v) => !v)}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all shadow-md ${
+                        sortByMatch
+                          ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
+                          : "bg-gradient-to-r from-violet-500/10 to-purple-500/10 text-foreground border border-violet-500/20 hover:border-violet-500/40"
+                      }`}
+                    >
+                      <Zap className="w-4 h-4" />
+                      {sortByMatch ? "Sorted by Match" : "Sort by Match"}
+                    </motion.button>
+                  )}
+                </div>
+              </div>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button variant="action" size="sm" onClick={() => navigate("/dashboard/post-request")}>
+                  Post Your Request
+                </Button>
+              </motion.div>
+            </div>
           </div>
-        </div>
+        </motion.div>
 
         {loading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-16 space-y-4"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            >
+              <Loader2 className="w-12 h-12 text-primary" />
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-sm text-muted-foreground"
+            >
+              Loading room requests...
+            </motion.p>
+          </motion.div>
         )}
 
         {!loading && requests.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No active room requests at the moment.</p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-16"
+          >
+            <motion.div
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              className="mb-6"
+            >
+              <Search className="w-20 h-20 mx-auto text-muted-foreground/40" />
+            </motion.div>
+            <p className="text-muted-foreground text-lg">No active room requests at the moment.</p>
+          </motion.div>
         )}
 
         {!loading && requests.length > 0 && (() => {
           let displayRequests = requests;
           if (sortByMatch && userData) {
             displayRequests = [...requests].sort((a, b) => {
-              const sa = matchRequestScore(userData, a).score;
-              const sb = matchRequestScore(userData, b).score;
-              return sb - sa;
+              const matchA = matchRequestScore(userData, a);
+              const matchB = matchRequestScore(userData, b);
+              
+              // Calculate distance if user location is available
+              let distanceA = Infinity;
+              let distanceB = Infinity;
+              
+              if (userLocation && a.latitude && a.longitude && a.latitude !== 0) {
+                distanceA = calculateDistance(
+                  userLocation.latitude,
+                  userLocation.longitude,
+                  a.latitude,
+                  a.longitude
+                );
+              }
+              
+              if (userLocation && b.latitude && b.longitude && b.latitude !== 0) {
+                distanceB = calculateDistance(
+                  userLocation.latitude,
+                  userLocation.longitude,
+                  b.latitude,
+                  b.longitude
+                );
+              }
+              
+              // Priority 1: Nearby requests (within 5km get huge boost)
+              const nearbyBoostA = distanceA < 5 ? 50 : (distanceA < 10 ? 25 : 0);
+              const nearbyBoostB = distanceB < 5 ? 50 : (distanceB < 10 ? 25 : 0);
+              
+              // Priority 2: Match score
+              const totalScoreA = matchA.score + nearbyBoostA;
+              const totalScoreB = matchB.score + nearbyBoostB;
+              
+              // Priority 3: If scores are equal, prefer closer requests
+              if (totalScoreA === totalScoreB) {
+                return distanceA - distanceB;
+              }
+              
+              return totalScoreB - totalScoreA;
             });
           }
           return (
           <div className="space-y-4">
-            {displayRequests.map((req) => {
-              const isEmergency = req.request_type === "emergency";
-              const match = userData ? matchRequestScore(userData, req) : null;
-              
-              return (
-                <div
-                  key={req.request_id}
-                  className={`bg-card rounded-xl border p-5 shadow-card ${
-                    isEmergency ? "border-secondary" : "border-border"
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        {req.userData?.selfie_url ? (
-                          <img
-                            src={req.userData.selfie_url}
-                            alt={req.userData.name}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-primary-foreground text-xs font-bold">
-                            {req.userData?.name?.charAt(0) || "U"}
+            <AnimatePresence mode="popLayout">
+              {displayRequests.map((req, index) => {
+                const isEmergency = req.request_type === "emergency";
+                const match = userData ? matchRequestScore(userData, req) : null;
+                
+                return (
+                  <motion.div
+                    key={req.request_id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ delay: index * 0.05 }}
+                    whileHover={{ y: -4, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
+                    className={`bg-card rounded-2xl border p-6 shadow-card transition-all duration-300 ${
+                      isEmergency ? "border-orange-500/30 bg-gradient-to-br from-orange-500/5 to-transparent" : ""
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      <div className="flex-1">
+                        {/* User info with avatar */}
+                        <div className="flex items-center gap-3 mb-3">
+                          <motion.div whileHover={{ scale: 1.1 }} className="relative">
+                            {req.userData?.selfie_url ? (
+                              <img
+                                src={req.userData.selfie_url}
+                                alt={req.userData.name}
+                                className="w-12 h-12 rounded-full object-cover ring-2 ring-violet-500/20"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg">
+                                {req.userData?.name?.charAt(0) || "U"}
+                              </div>
+                            )}
+                            {req.userData?.verification_badges && req.userData.verification_badges.length > 0 && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center border-2 border-background"
+                              >
+                                <span className="text-white text-[10px]">✓</span>
+                              </motion.div>
+                            )}
+                          </motion.div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-foreground">
+                                {req.userData?.name || "User"}
+                              </span>
+                              {isEmergency && (
+                                <motion.span
+                                  animate={{ scale: [1, 1.05, 1] }}
+                                  transition={{ duration: 2, repeat: Infinity }}
+                                  className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg"
+                                >
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Emergency
+                                </motion.span>
+                              )}
+                              {!isEmergency && (
+                                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-violet-500/10 text-violet-600 border border-violet-500/20">
+                                  Long-Term
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {getTimeAgo(req.created_at)}
+                            </p>
                           </div>
-                        )}
-                        <span className="font-medium text-sm text-foreground">
-                          {req.userData?.name || "User"}
-                        </span>
-                        <span
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            isEmergency
-                              ? "bg-secondary/10 text-secondary"
-                              : "bg-accent text-accent-foreground"
-                          }`}
-                        >
-                          {getRequestTypeLabel(req.request_type)}
-                        </span>
-                        {req.userData?.verification_badges && req.userData.verification_badges.length > 0 && (
-                          <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
-                            ✔ Verified
-                          </span>
-                        )}
+                        </div>
+
+                        {/* Title and description */}
+                        <h3 className="font-display font-bold text-foreground text-lg mb-2">{req.title}</h3>
+                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{req.description}</p>
+
+                        {/* Details badges */}
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          <motion.span
+                            whileHover={{ scale: 1.05 }}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-500/10 text-blue-600 rounded-full border border-blue-500/20 font-medium"
+                          >
+                            <Clock className="w-3 h-3" />
+                            {getDurationLabel(req.duration)}
+                          </motion.span>
+                          <motion.span
+                            whileHover={{ scale: 1.05 }}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full border border-green-500/20 font-medium"
+                          >
+                            <MapPin className="w-3 h-3" />
+                            {req.location || req.city}
+                          </motion.span>
+                          {userLocation && req.latitude && req.longitude && req.latitude !== 0 && (() => {
+                            const distance = calculateDistance(
+                              userLocation.latitude,
+                              userLocation.longitude,
+                              req.latitude,
+                              req.longitude
+                            );
+                            return (
+                              <motion.span
+                                whileHover={{ scale: 1.05 }}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-blue-500/10 text-blue-600 rounded-full border border-blue-500/20 font-semibold"
+                              >
+                                <Navigation className="w-3 h-3" />
+                                {distance}km away
+                              </motion.span>
+                            );
+                          })()}
+                          <motion.span
+                            whileHover={{ scale: 1.05 }}
+                            className="px-3 py-1.5 bg-gradient-to-r from-violet-500/10 to-purple-500/10 text-violet-600 rounded-full border border-violet-500/20 font-bold"
+                          >
+                            ₹{req.budget_min.toLocaleString()} - ₹{req.budget_max.toLocaleString()}
+                          </motion.span>
+                          {req.preferences?.gender_preference && req.preferences.gender_preference !== "any" && (
+                            <motion.span
+                              whileHover={{ scale: 1.05 }}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-pink-500/10 text-pink-600 rounded-full border border-pink-500/20 font-medium"
+                            >
+                              <User className="w-3 h-3" />
+                              {req.preferences.gender_preference}
+                            </motion.span>
+                          )}
+                        </div>
                       </div>
-                      <h3 className="font-display font-bold text-foreground mb-1">{req.title}</h3>
-                      <p className="text-sm text-muted-foreground mb-2">{req.description}</p>
-                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {req.duration.replace(/_/g, " ")}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          {req.location || req.city}
-                        </span>
-                        <span>
-                          Budget: ₹{req.budget_min.toLocaleString()} - ₹{req.budget_max.toLocaleString()}
-                        </span>
-                        {req.preferences?.gender_preference && req.preferences.gender_preference !== "any" && (
-                          <span>Prefers: {req.preferences.gender_preference}</span>
+
+                      {/* Right side - Match score and actions */}
+                      <div className="flex flex-col items-end gap-3 min-w-[140px]">
+                        {req.needed_from && (
+                          <motion.span
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="text-xs font-bold text-orange-600 bg-orange-500/10 px-3 py-1.5 rounded-full border border-orange-500/20"
+                          >
+                            Needed: {(req.needed_from?.toDate ? req.needed_from.toDate() : new Date(req.needed_from)).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                          </motion.span>
                         )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className="text-[10px] text-muted-foreground">
-                        {getTimeAgo(req.created_at)}
-                      </span>
-                      {req.needed_from && (
-                        <span className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">
-                          Needed: {(req.needed_from?.toDate ? req.needed_from.toDate() : new Date(req.needed_from)).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                        </span>
-                      )}                        {match && (
-                          <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${getMatchBadgeClass(match.color)}`}>
-                            <Zap className="w-2.5 h-2.5" />
+                        {match && (
+                          <motion.div
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            whileHover={{ scale: 1.05 }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-md ${
+                              match.color === "green" ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-600 border border-green-500/30" :
+                              match.color === "yellow" ? "bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-600 border border-yellow-500/30" :
+                              match.color === "orange" ? "bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-600 border border-orange-500/30" :
+                              "bg-muted text-muted-foreground border border-border"
+                            }`}
+                          >
+                            <Zap className="w-3 h-3" />
                             {match.score}% {match.label}
-                          </div>
-                        )}                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedRequest(req)}
-                      >
-                        View Details
-                      </Button>
-                      <Button variant="brand-outline" size="sm"
-                        disabled={messagingUser === req.searcher_id}
-                        onClick={() => handleMessage(req.searcher_id)}
-                      >
-                        {messagingUser === req.searcher_id ? (
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        ) : (
-                          <MessageCircle className="w-3 h-3 mr-1" />
+                          </motion.div>
                         )}
-                        Message
-                      </Button>
+                        <div className="flex flex-col gap-2 w-full">
+                          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => setSelectedRequest(req)}
+                            >
+                              View Details
+                            </Button>
+                          </motion.div>
+                          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                            <Button
+                              variant="action"
+                              size="sm"
+                              className="w-full"
+                              disabled={messagingUser === req.searcher_id}
+                              onClick={() => handleMessage(req.searcher_id)}
+                            >
+                              {messagingUser === req.searcher_id ? (
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              ) : (
+                                <MessageCircle className="w-3 h-3 mr-1" />
+                              )}
+                              Message
+                            </Button>
+                          </motion.div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
           );
         })()}

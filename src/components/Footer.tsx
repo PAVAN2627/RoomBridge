@@ -11,7 +11,7 @@ const Footer = () => {
               <div className="w-8 h-8 rounded-lg bg-gradient-brand flex items-center justify-center">
                 <Shield className="w-4 h-4 text-primary-foreground" />
               </div>
-              <span className="font-display text-lg font-bold text-background">RoomMatch</span>
+              <span className="font-display text-lg font-bold text-background">RoomBridge</span>
             </Link>
             <p className="text-sm text-background/60">
               India's first trust-first student room platform. Verified, safe, smart.
@@ -60,7 +60,7 @@ const Footer = () => {
           ))}
         </div>
         <div className="border-t border-background/10 mt-10 pt-6 text-center">
-          <p className="text-xs text-background/40">© 2026 RoomMatch. All rights reserved.</p>
+          <p className="text-xs text-background/40">© 2026 RoomBridge. All rights reserved.</p>
         </div>
       </div>
     </footer>

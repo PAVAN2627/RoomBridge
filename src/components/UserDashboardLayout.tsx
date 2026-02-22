@@ -11,6 +11,7 @@ import { collection, onSnapshot, orderBy, query, where } from "firebase/firestor
 import { db } from "@/lib/firebase";
 import { ChatSessionDocument } from "@/lib/firebase/types";
 import { getUser } from "@/lib/firebase/users";
+import { AIChatbot } from "@/components/AIChatbot";
 
 const LS_KEY = "rb_chat_seen"; // localStorage key: { [chatId]: milliseconds }
 
@@ -361,6 +362,9 @@ const UserDashboardLayout = ({ children }: { children: ReactNode }) => {
 
         <main className="flex-1 p-4 lg:p-6">{children}</main>
       </div>
+
+      {/* AI Chatbot */}
+      <AIChatbot />
     </div>
   );
 };

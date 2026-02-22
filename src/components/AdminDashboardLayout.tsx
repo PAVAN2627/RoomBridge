@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ShieldCheck, LayoutDashboard, Users, Home, FileText,
-  Star, Flag, UserCircle, LogOut, Menu, Bell
+  Star, Flag, UserCircle, LogOut, Menu, Bell, MapPin
 } from "lucide-react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -17,6 +17,7 @@ const adminMenuItems = [
   { icon: FileText, label: "Room Requests", to: "/admin/requests" },
   { icon: Star, label: "Reviews", to: "/admin/reviews" },
   { icon: Flag, label: "Reports & Flags", to: "/admin/reports" },
+  { icon: MapPin, label: "Geocoding Utility", to: "/admin/geocoding" },
   { icon: UserCircle, label: "Profile", to: "/admin/profile" },
 ];
 

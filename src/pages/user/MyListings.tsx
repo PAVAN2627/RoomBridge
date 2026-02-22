@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import UserDashboardLayout from "@/components/UserDashboardLayout";
 import { Loader2, Trash2, Edit, Eye, EyeOff, MapPin, AlertTriangle, Home, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 import { collection, query, where, onSnapshot, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -156,113 +157,183 @@ const MyListings = () => {
         </div>
 
         {loading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-16 space-y-4"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            >
+              <Loader2 className="w-12 h-12 text-primary" />
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-sm text-muted-foreground"
+            >
+              Loading your listings...
+            </motion.p>
+          </motion.div>
         )}
 
         {!loading && listings.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">You haven't posted any listings yet.</p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-16"
+          >
+            <motion.div
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              className="mb-6"
+            >
+              <Home className="w-20 h-20 mx-auto text-muted-foreground/40" />
+            </motion.div>
+            <p className="text-muted-foreground mb-6 text-lg">You haven't posted any listings yet.</p>
             <Button variant="action" onClick={() => navigate("/dashboard/post")}>
               Post Your First Listing
             </Button>
-          </div>
+          </motion.div>
         )}
 
         {!loading && listings.length > 0 && (
           <div className="space-y-4">
-            {listings.map((listing) => (
-              <div
-                key={listing.listing_id}
-                className={`bg-card rounded-xl border p-5 shadow-card ${
-                  listing.status === "inactive" ? "opacity-60" : ""
-                }`}
-              >
-                <div className="flex gap-4">
-                  {listing.images && listing.images.length > 0 && (
-                    <img
-                      src={listing.images[0]}
-                      alt={listing.title}
-                      className="w-32 h-32 object-cover rounded-lg flex-shrink-0"
-                    />
-                  )}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="font-display font-bold text-foreground mb-1">{listing.title}</h3>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                          <span className={`px-2 py-0.5 rounded-full ${
-                            listing.status === "active" 
-                              ? "bg-green-500/10 text-green-600" 
-                              : "bg-gray-500/10 text-gray-600"
-                          }`}>
-                            {listing.status === "active" ? "Active" : "Inactive"}
+            <AnimatePresence mode="popLayout">
+              {listings.map((listing, index) => (
+                <motion.div
+                  key={listing.listing_id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ delay: index * 0.05 }}
+                  whileHover={{ y: -4, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
+                  className={`bg-card rounded-2xl border p-6 shadow-card transition-all duration-300 ${
+                    listing.status === "inactive" ? "opacity-60" : ""
+                  } ${listing.listing_type === "emergency" ? "border-orange-500/30 bg-gradient-to-br from-orange-500/5 to-transparent" : ""}`}
+                >
+                  <div className="flex gap-5">
+                    {listing.images && listing.images.length > 0 && (
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        className="relative w-40 h-40 flex-shrink-0 rounded-xl overflow-hidden group"
+                      >
+                        <img
+                          src={listing.images[0]}
+                          alt={listing.title}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        {listing.listing_type === "emergency" && (
+                          <motion.div
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="absolute top-2 right-2"
+                          >
+                            <span className="flex items-center gap-1 text-xs font-bold bg-orange-500 text-white px-2 py-1 rounded-full shadow-lg">
+                              <AlertTriangle className="w-3 h-3" />
+                              Urgent
+                            </span>
+                          </motion.div>
+                        )}
+                      </motion.div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-display font-bold text-foreground text-lg mb-2">{listing.title}</h3>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2 flex-wrap">
+                            <motion.span
+                              whileHover={{ scale: 1.05 }}
+                              className={`px-2.5 py-1 rounded-full font-medium ${
+                                listing.status === "active" 
+                                  ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-600 border border-green-500/30" 
+                                  : "bg-gray-500/10 text-gray-600 border border-gray-500/20"
+                              }`}
+                            >
+                              {listing.status === "active" ? "Active" : "Inactive"}
+                            </motion.span>
+                            <span className="px-2 py-1 bg-violet-500/10 text-violet-600 rounded-full font-medium border border-violet-500/20">
+                              {listing.room_type?.toUpperCase()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              {listing.location}, {listing.city}
+                            </span>
+                            <span>•</span>
+                            <span>{getTimeAgo(listing.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{listing.description}</p>
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm">
+                          <span className="font-bold text-lg bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                            ₹{listing.rent_amount.toLocaleString()}/mo
                           </span>
-                          <span>{listing.room_type?.toUpperCase()}</span>
-                          <span>•</span>
-                          <span>{listing.location}, {listing.city}</span>
-                          <span>•</span>
-                          <span>{getTimeAgo(listing.created_at)}</span>
+                          <span className="text-muted-foreground ml-3">• Deposit: ₹{listing.deposit_amount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => { setSelectedListing(listing); setImageIndex(0); }}
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              View
+                            </Button>
+                          </motion.div>
+                          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleToggleStatus(listing.listing_id, listing.status)}
+                            >
+                              {listing.status === "active" ? (
+                                <>
+                                  <EyeOff className="w-3 h-3 mr-1" />
+                                  Deactivate
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="w-3 h-3 mr-1" />
+                                  Activate
+                                </>
+                              )}
+                            </Button>
+                          </motion.div>
+                          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigate(`/dashboard/post?edit=${listing.listing_id}`)}
+                            >
+                              <Edit className="w-3 h-3 mr-1" />
+                              Edit
+                            </Button>
+                          </motion.div>
+                          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setListingToDelete(listing.listing_id);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </motion.div>
                         </div>
                       </div>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{listing.description}</p>
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm">
-                        <span className="font-semibold text-foreground">₹{listing.rent_amount.toLocaleString()}/mo</span>
-                        <span className="text-muted-foreground ml-2">• Deposit: ₹{listing.deposit_amount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => { setSelectedListing(listing); setImageIndex(0); }}
-                        >
-                          <Eye className="w-3 h-3 mr-1" />
-                          View
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleStatus(listing.listing_id, listing.status)}
-                        >
-                          {listing.status === "active" ? (
-                            <>
-                              <EyeOff className="w-3 h-3 mr-1" />
-                              Deactivate
-                            </>
-                          ) : (
-                            <>
-                              <Eye className="w-3 h-3 mr-1" />
-                              Activate
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/dashboard/post?edit=${listing.listing_id}`)}
-                        >
-                          <Edit className="w-3 h-3 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setListingToDelete(listing.listing_id);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </div>

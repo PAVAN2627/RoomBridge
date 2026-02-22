@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { createRoomRequest } from "@/lib/firebase/roomRequests";
 import { Timestamp, doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { geocodeLocation } from "@/lib/geocoding";
 
 const PostRoomRequest = () => {
   const { user } = useAuth();
@@ -122,6 +123,22 @@ const PostRoomRequest = () => {
     setLoading(true);
 
     try {
+      // Geocode the location to get coordinates
+      let latitude = 0;
+      let longitude = 0;
+      
+      try {
+        const locationToGeocode = formData.location || formData.city;
+        const coordinates = await geocodeLocation(locationToGeocode, formData.city);
+        if (coordinates) {
+          latitude = coordinates.latitude;
+          longitude = coordinates.longitude;
+        }
+      } catch (geoError) {
+        console.error("Geocoding error:", geoError);
+        // Continue without coordinates - not a critical error
+      }
+
       // Calculate needed_from and needed_until for type compatibility
       const neededFrom = formData.required_date
         ? Timestamp.fromDate(new Date(formData.required_date))
@@ -145,8 +162,8 @@ const PostRoomRequest = () => {
         budget_max: budgetMax,
         city: formData.city,
         location: formData.location || formData.city,
-        latitude: 0,
-        longitude: 0,
+        latitude,
+        longitude,
         preferences: {
           gender_preference: formData.gender_preference as "any" | "male" | "female",
         },

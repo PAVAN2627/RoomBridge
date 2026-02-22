@@ -36,6 +36,7 @@ import AdminReviews from "./pages/admin/AdminReviews";
 import AdminReports from "./pages/admin/AdminReports";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminProfile from "./pages/admin/AdminProfile";
+import AdminGeocoding from "./pages/admin/AdminGeocoding";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ const App = () => (
           <Route path="/admin/reports" element={<ProtectedRoute requireAdmin><AdminReports /></ProtectedRoute>} />
           <Route path="/admin/settings" element={<ProtectedRoute requireAdmin><AdminSettings /></ProtectedRoute>} />
           <Route path="/admin/profile" element={<ProtectedRoute requireAdmin><AdminProfile /></ProtectedRoute>} />
+          <Route path="/admin/geocoding" element={<ProtectedRoute requireAdmin><AdminGeocoding /></ProtectedRoute>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>

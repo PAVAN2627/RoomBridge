@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ReportDocument } from './types';
+import { applyAutoModeration } from './autoModeration';
 
 /**
  * Submit a safety report
@@ -47,7 +48,14 @@ export async function submitReport(
   
   await setDoc(reportRef, newReport);
   
-  // Note: moderation_history is written by admin/cloud functions only
+  // Apply automated moderation rules
+  try {
+    const moderationResult = await applyAutoModeration(reportedUserId);
+    console.log(`Auto-moderation applied: ${moderationResult.action} (${moderationResult.reportCount} reports)`);
+  } catch (error) {
+    console.error('Error applying auto-moderation:', error);
+    // Don't fail the report submission if auto-moderation fails
+  }
   
   return newReport;
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Shield, Eye, EyeOff, User, UserCog, ArrowLeft } from "lucide-react";
+import { Shield, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { signInWithGoogle, signInWithEmail } from "@/lib/firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { getUser } from "@/lib/firebase/users";
@@ -83,14 +83,6 @@ const Login = () => {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDemoLogin = (role: 'user' | 'admin') => {
-    if (role === 'admin') {
-      navigate('/admin');
-    } else {
-      navigate('/dashboard');
     }
   };
 
@@ -218,38 +210,6 @@ const Login = () => {
             </svg>
             {loading ? "Connecting..." : "Continue with Google"}
           </Button>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-background px-3 text-muted-foreground">Quick Demo Access</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Button 
-              variant="outline" 
-              size="lg" 
-              className="w-full text-sm font-medium"
-              onClick={() => handleDemoLogin('user')}
-              disabled={loading}
-            >
-              <User className="w-4 h-4 mr-2" />
-              User Demo
-            </Button>
-            <Button 
-              variant="outline" 
-              size="lg" 
-              className="w-full text-sm font-medium"
-              onClick={() => handleDemoLogin('admin')}
-              disabled={loading}
-            >
-              <UserCog className="w-4 h-4 mr-2" />
-              Admin Demo
-            </Button>
-          </div>
 
           <p className="text-center text-sm text-muted-foreground">
             Don't have an account?{" "}

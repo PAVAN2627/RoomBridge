@@ -162,9 +162,11 @@ service cloud.firestore {
       allow create: if (isAuthenticated() && isOwner(userId)) ||
                       userId == 'p4JFxM9hz8QLhQei6S2BFKuBl762';
       
-      // Allow users to update their own document
-      allow update: if isAuthenticated() && 
-                       isOwner(userId);
+      // Allow users to update their own document OR allow admins to update any user document
+      allow update: if (isAuthenticated() && isOwner(userId)) || isAdmin();
+      
+      // Allow admins to delete any user document
+      allow delete: if isAdmin();
       
       // Subcollections
       match /matching_criteria/{criteriaId} {
@@ -213,10 +215,10 @@ service cloud.firestore {
                        isPositiveAmount(request.resource.data.rent_amount) &&
                        isPositiveAmount(request.resource.data.deposit_amount);
       
-      // Allow users to update and delete their own listings
-      allow update, delete: if isAuthenticated() && 
-                               isNotBanned() &&
-                               isOwner(resource.data.poster_id);
+      // Allow users to update and delete their own listings OR allow admins to manage any listing
+      allow update, delete: if (isAuthenticated() && 
+                                isNotBanned() &&
+                                isOwner(resource.data.poster_id)) || isAdmin();
     }
     
     // Room Requests collection

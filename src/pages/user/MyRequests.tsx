@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import UserDashboardLayout from "@/components/UserDashboardLayout";
 import { Loader2, Trash2, Clock, MapPin, Eye, EyeOff, Edit, AlertTriangle, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 import { collection, query, where, onSnapshot, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -152,123 +153,175 @@ const MyRequests = () => {
         </div>
 
         {loading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-16 space-y-4"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            >
+              <Loader2 className="w-12 h-12 text-primary" />
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-sm text-muted-foreground"
+            >
+              Loading your requests...
+            </motion.p>
+          </motion.div>
         )}
 
         {!loading && requests.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">You haven't posted any room requests yet.</p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-16"
+          >
+            <motion.div
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              className="mb-6"
+            >
+              <Clock className="w-20 h-20 mx-auto text-muted-foreground/40" />
+            </motion.div>
+            <p className="text-muted-foreground mb-6 text-lg">You haven't posted any room requests yet.</p>
             <Button variant="action" onClick={() => navigate("/dashboard/post-request")}>
               Post Your First Request
             </Button>
-          </div>
+          </motion.div>
         )}
 
         {!loading && requests.length > 0 && (
           <div className="space-y-4">
-            {requests.map((req) => {
-              const isEmergency = req.request_type === "emergency";
-              return (
-                <div
-                  key={req.request_id}
-                  className={`bg-card rounded-xl border p-5 shadow-card ${
-                    req.status === "inactive" ? "opacity-60" : ""
-                  } ${isEmergency ? "border-secondary" : "border-border"}`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-display font-bold text-foreground">{req.title}</h3>
-                        <span
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            isEmergency
-                              ? "bg-secondary/10 text-secondary"
-                              : "bg-accent text-accent-foreground"
-                          }`}
-                        >
-                          {isEmergency ? "Emergency" : "Long-Term"}
-                        </span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                          req.status === "active"
-                            ? "bg-green-500/10 text-green-600"
-                            : "bg-gray-500/10 text-gray-600"
-                        }`}>
-                          {req.status === "active" ? "Active" : "Inactive"}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-3">{req.description}</p>
-                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {getDurationLabel(req.duration)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          {req.location || req.city}
-                        </span>
-                        <span>
-                          Budget: ₹{req.budget_min.toLocaleString()} - ₹{req.budget_max.toLocaleString()}
-                        </span>
-                        {req.needed_from && (
-                          <span className="font-medium text-primary">
-                            Needed: {(req.needed_from?.toDate ? req.needed_from.toDate() : new Date(req.needed_from)).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+            <AnimatePresence mode="popLayout">
+              {requests.map((req, index) => {
+                const isEmergency = req.request_type === "emergency";
+                return (
+                  <motion.div
+                    key={req.request_id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ delay: index * 0.05 }}
+                    whileHover={{ y: -4, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
+                    className={`bg-card rounded-2xl border p-6 shadow-card transition-all duration-300 ${
+                      req.status === "inactive" ? "opacity-60" : ""
+                    } ${isEmergency ? "border-orange-500/30 bg-gradient-to-br from-orange-500/5 to-transparent" : ""}`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-3 flex-wrap">
+                          <h3 className="font-display font-bold text-foreground text-lg">{req.title}</h3>
+                          {isEmergency && (
+                            <motion.span
+                              animate={{ scale: [1, 1.05, 1] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                              className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg"
+                            >
+                              <AlertTriangle className="w-3 h-3" />
+                              Emergency
+                            </motion.span>
+                          )}
+                          {!isEmergency && (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-violet-500/10 text-violet-600 border border-violet-500/20">
+                              Long-Term
+                            </span>
+                          )}
+                          <motion.span
+                            whileHover={{ scale: 1.05 }}
+                            className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                              req.status === "active"
+                                ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-600 border border-green-500/30"
+                                : "bg-gray-500/10 text-gray-600 border border-gray-500/20"
+                            }`}
+                          >
+                            {req.status === "active" ? "Active" : "Inactive"}
+                          </motion.span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-4">{req.description}</p>
+                        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1 px-2.5 py-1 bg-blue-500/10 text-blue-600 rounded-full border border-blue-500/20">
+                            <Clock className="w-3 h-3" />
+                            {getDurationLabel(req.duration)}
                           </span>
-                        )}
-                        <span>•</span>
-                        <span>{getTimeAgo(req.created_at)}</span>
+                          <span className="flex items-center gap-1 px-2.5 py-1 bg-green-500/10 text-green-600 rounded-full border border-green-500/20">
+                            <MapPin className="w-3 h-3" />
+                            {req.location || req.city}
+                          </span>
+                          <span className="px-2.5 py-1 bg-violet-500/10 text-violet-600 rounded-full border border-violet-500/20 font-medium">
+                            ₹{req.budget_min.toLocaleString()} - ₹{req.budget_max.toLocaleString()}
+                          </span>
+                          {req.needed_from && (
+                            <span className="px-2.5 py-1 bg-orange-500/10 text-orange-600 rounded-full border border-orange-500/20 font-medium">
+                              Needed: {(req.needed_from?.toDate ? req.needed_from.toDate() : new Date(req.needed_from)).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                            </span>
+                          )}
+                          <span>•</span>
+                          <span>{getTimeAgo(req.created_at)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex gap-2 mt-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedRequest(req)}
-                    >
-                      <Eye className="w-3 h-3 mr-1" />
-                      View
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleToggleStatus(req.request_id, req.status)}
-                    >
-                      {req.status === "active" ? (
-                        <>
-                          <EyeOff className="w-3 h-3 mr-1" />
-                          Deactivate
-                        </>
-                      ) : (
-                        <>
+                    <div className="flex gap-2 mt-4">
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedRequest(req)}
+                        >
                           <Eye className="w-3 h-3 mr-1" />
-                          Activate
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/dashboard/post-request?edit=${req.request_id}`)}
-                    >
-                      <Edit className="w-3 h-3 mr-1" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setRequestToDelete(req.request_id);
-                        setDeleteDialogOpen(true);
-                      }}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+                          View
+                        </Button>
+                      </motion.div>
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleStatus(req.request_id, req.status)}
+                        >
+                          {req.status === "active" ? (
+                            <>
+                              <EyeOff className="w-3 h-3 mr-1" />
+                              Deactivate
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3 h-3 mr-1" />
+                              Activate
+                            </>
+                          )}
+                        </Button>
+                      </motion.div>
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/dashboard/post-request?edit=${req.request_id}`)}
+                        >
+                          <Edit className="w-3 h-3 mr-1" />
+                          Edit
+                        </Button>
+                      </motion.div>
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setRequestToDelete(req.request_id);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
         )}
       </div>
