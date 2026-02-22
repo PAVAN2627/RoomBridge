@@ -253,7 +253,7 @@ const Register = () => {
       await updateUser(userId, updates);
 
       toast({ title: "Success!", description: "Account created successfully. All verifications complete!" });
-      navigate('/dashboard/profile');
+      navigate('/dashboard');
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to create account.", variant: "destructive" });
     } finally {
