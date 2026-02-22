@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { UserDocument } from "@/lib/firebase/types";
+import { UserDocument, RatingDocument } from "@/lib/firebase/types";
 import { getUser } from "@/lib/firebase/users";
+import { getUserRatings } from "@/lib/firebase/ratings";
 import { Loader2, MapPin, Star, Lock, MessageCircle, GraduationCap, Briefcase, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,6 +20,7 @@ export function UserProfileModal({ userId, open, onOpenChange }: UserProfileModa
   const { user } = useAuth();
   const { toast } = useToast();
   const [userData, setUserData] = useState<UserDocument | null>(null);
+  const [userRatings, setUserRatings] = useState<RatingDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [ratingStars, setRatingStars] = useState(0);
@@ -37,22 +39,25 @@ export function UserProfileModal({ userId, open, onOpenChange }: UserProfileModa
       setReviewText("");
       setRatingDone(false);
       setShowIdProof(false);
-      // Load user data and check connection simultaneously
+      setUserRatings([]);
+      // Load user data, check connection, and fetch ratings simultaneously
       const isOwnProfile = user?.uid === userId;
       Promise.all([
         getUser(userId),
         isOwnProfile || !user
           ? Promise.resolve(true)
           : findChatBetweenUsers(user.uid, userId).then((chat) => chat !== null),
+        getUserRatings(userId, 10), // Fetch up to 10 ratings
       ])
-        .then(([uData, connected]) => {
+        .then(([uData, connected, ratings]) => {
           setUserData(uData);
           setIsConnected(connected);
+          setUserRatings(ratings);
         })
         .catch(console.error)
         .finally(() => setLoading(false));
     }
-  }, [userId, open]);
+  }, [userId, open, user]);
 
   const handleSubmitRating = async () => {
     if (!user || !userId || ratingStars === 0) return;
@@ -262,14 +267,66 @@ export function UserProfileModal({ userId, open, onOpenChange }: UserProfileModa
               )}
             </div>
 
-            {/* Rating */}
+            {/* Rating Summary */}
             {userData.total_ratings > 0 && (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-foreground font-medium">Rating:</span>
-                <span className="text-primary font-bold">
-                  {userData.average_rating.toFixed(1)} ⭐
-                </span>
-                <span className="text-muted-foreground">({userData.total_ratings} reviews)</span>
+              <div className="bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 rounded-xl p-4 border border-violet-200 dark:border-violet-900/30">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-foreground">Overall Rating</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+                      {userData.average_rating.toFixed(1)}
+                    </span>
+                    <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Based on {userData.total_ratings} {userData.total_ratings === 1 ? 'review' : 'reviews'}
+                </p>
+              </div>
+            )}
+
+            {/* Individual Ratings - Scrollable */}
+            {userRatings.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">Recent Reviews</p>
+                <div className="max-h-60 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-violet-500/20 scrollbar-track-transparent">
+                  {userRatings.map((rating) => (
+                    <div
+                      key={rating.rating_id}
+                      className="bg-muted/50 rounded-lg p-3 border border-border/50"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`w-3.5 h-3.5 ${
+                                s <= rating.stars
+                                  ? "text-yellow-400 fill-yellow-400"
+                                  : "text-muted-foreground/30"
+                              }`}
+                            />
+                          ))}
+                          <span className="ml-1 text-xs font-bold text-foreground">
+                            {rating.stars}.0
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {rating.created_at?.toDate?.()?.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          }) || 'N/A'}
+                        </span>
+                      </div>
+                      {rating.review_text && (
+                        <p className="text-xs text-foreground leading-relaxed italic">
+                          "{rating.review_text}"
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
