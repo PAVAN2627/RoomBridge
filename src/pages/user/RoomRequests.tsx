@@ -17,6 +17,13 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { matchRequestScore } from "@/lib/matchScore";
 import { getCurrentLocation, calculateDistance } from "@/lib/geocoding";
 
@@ -53,6 +60,9 @@ const RoomRequests = () => {
   const [requests, setRequests] = useState<RoomRequest[]>([]);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedArea, setSelectedArea] = useState<string>("all");
+  const [selectedRequestType, setSelectedRequestType] = useState<string>("all");
   const [sortByMatch, setSortByMatch] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<RoomRequest | null>(null);
   const [messagingUser, setMessagingUser] = useState<string | null>(null);
@@ -183,26 +193,92 @@ const RoomRequests = () => {
         >
           <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl blur-xl" />
           <div className="relative bg-card/80 backdrop-blur-sm border rounded-2xl p-6 shadow-lg">
+            {/* Search Bar */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <div className="flex-1 relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Search by title, location, or city..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                />
+              </div>
+              <Button variant="action" size="default" className="shadow-lg hover:shadow-xl transition-all">
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </Button>
+            </div>
+
+            {/* Area and Request Type Filters */}
+            <motion.div 
+              className="flex flex-col sm:flex-row gap-3 mb-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+            >
+              {/* Area Filter */}
+              <div className="flex-1">
+                <Select value={selectedArea} onValueChange={setSelectedArea}>
+                  <SelectTrigger className="w-full rounded-xl bg-background border-border focus:ring-2 focus:ring-primary/50">
+                    <SelectValue placeholder="Filter by Area" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Areas</SelectItem>
+                    {(() => {
+                      // Extract unique cities and locations from requests
+                      const areas = new Set<string>();
+                      requests.forEach(request => {
+                        areas.add(request.city);
+                        // Add location if it's different from city
+                        if (request.location && request.location.toLowerCase() !== request.city.toLowerCase()) {
+                          areas.add(request.location);
+                        }
+                      });
+                      return Array.from(areas).sort().map(area => (
+                        <SelectItem key={area} value={area.toLowerCase()}>
+                          {area}
+                        </SelectItem>
+                      ));
+                    })()}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Request Type Filter */}
+              <div className="flex-1">
+                <Select value={selectedRequestType} onValueChange={setSelectedRequestType}>
+                  <SelectTrigger className="w-full rounded-xl bg-background border-border focus:ring-2 focus:ring-primary/50">
+                    <SelectValue placeholder="Filter by Request Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Request Types</SelectItem>
+                    <SelectItem value="normal">Long-Term</SelectItem>
+                    <SelectItem value="emergency">Emergency</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </motion.div>
+
+            {/* Actions Row */}
             <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex-1 min-w-[200px]">
-                <p className="text-sm text-muted-foreground mb-2">People looking for rooms</p>
-                <div className="flex gap-2 items-center flex-wrap">
-                  {userData && (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setSortByMatch((v) => !v)}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all shadow-md ${
-                        sortByMatch
-                          ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
-                          : "bg-gradient-to-r from-violet-500/10 to-purple-500/10 text-foreground border border-violet-500/20 hover:border-violet-500/40"
-                      }`}
-                    >
-                      <Zap className="w-4 h-4" />
-                      {sortByMatch ? "Sorted by Match" : "Sort by Match"}
-                    </motion.button>
-                  )}
-                </div>
+              <div className="flex gap-2 items-center flex-wrap">
+                {userData && (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setSortByMatch((v) => !v)}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all shadow-md ${
+                      sortByMatch
+                        ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
+                        : "bg-gradient-to-r from-violet-500/10 to-purple-500/10 text-foreground border border-violet-500/20 hover:border-violet-500/40"
+                    }`}
+                  >
+                    <Zap className="w-4 h-4" />
+                    {sortByMatch ? "Sorted by Match" : "Sort by Match"}
+                  </motion.button>
+                )}
               </div>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button variant="action" size="sm" onClick={() => navigate("/dashboard/post-request")}>
@@ -212,6 +288,42 @@ const RoomRequests = () => {
             </div>
           </div>
         </motion.div>
+
+        {/* Results Count */}
+        {!loading && (() => {
+          const filteredCount = requests.filter((req) => {
+            const matchesSearch =
+              searchTerm === "" ||
+              req.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (req.location && req.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+              req.city.toLowerCase().includes(searchTerm.toLowerCase());
+
+            const matchesArea =
+              selectedArea === "all" ||
+              req.city.toLowerCase().includes(selectedArea.toLowerCase()) ||
+              (req.location && req.location.toLowerCase().includes(selectedArea.toLowerCase()));
+
+            const matchesRequestType =
+              selectedRequestType === "all" ||
+              req.request_type === selectedRequestType;
+
+            return matchesSearch && matchesArea && matchesRequestType;
+          }).length;
+
+          return (
+            <motion.div 
+              className="flex items-center justify-between"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
+              <p className="text-sm text-muted-foreground font-medium">
+                <span className="text-primary font-bold">{filteredCount}</span> request{filteredCount !== 1 ? "s" : ""} found
+                {sortByMatch && userData && <span className="text-violet-600 dark:text-violet-400"> · sorted by match</span>}
+              </p>
+            </motion.div>
+          );
+        })()}
 
         {loading && (
           <motion.div
@@ -254,9 +366,51 @@ const RoomRequests = () => {
         )}
 
         {!loading && requests.length > 0 && (() => {
-          let displayRequests = requests;
+          // Apply filters
+          let filteredRequests = requests.filter((req) => {
+            const matchesSearch =
+              searchTerm === "" ||
+              req.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (req.location && req.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+              req.city.toLowerCase().includes(searchTerm.toLowerCase());
+
+            const matchesArea =
+              selectedArea === "all" ||
+              req.city.toLowerCase().includes(selectedArea.toLowerCase()) ||
+              (req.location && req.location.toLowerCase().includes(selectedArea.toLowerCase()));
+
+            const matchesRequestType =
+              selectedRequestType === "all" ||
+              req.request_type === selectedRequestType;
+
+            return matchesSearch && matchesArea && matchesRequestType;
+          });
+
+          // Show empty state if no results after filtering
+          if (filteredRequests.length === 0) {
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center py-16"
+              >
+                <motion.div
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  className="mb-6"
+                >
+                  <Search className="w-20 h-20 mx-auto text-muted-foreground/40" />
+                </motion.div>
+                <p className="text-muted-foreground text-lg mb-2">No requests match your filters</p>
+                <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
+              </motion.div>
+            );
+          }
+
+          // Apply sorting
+          let displayRequests = filteredRequests;
           if (sortByMatch && userData) {
-            displayRequests = [...requests].sort((a, b) => {
+            displayRequests = [...filteredRequests].sort((a, b) => {
               const matchA = matchRequestScore(userData, a);
               const matchB = matchRequestScore(userData, b);
               

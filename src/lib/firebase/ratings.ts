@@ -38,6 +38,11 @@ export async function submitRating(
     throw new Error('Stars must be an integer between 1 and 5');
   }
   
+  // Prevent self-rating
+  if (reviewerId === revieweeId) {
+    throw new Error('You cannot rate yourself');
+  }
+  
   // Check for duplicate rating
   const existingRating = await findExistingRating(reviewerId, revieweeId, listingId);
   if (existingRating) {
@@ -47,13 +52,13 @@ export async function submitRating(
   const ratingRef = doc(collection(db, 'ratings'));
   const ratingId = ratingRef.id;
   
-  const newRating: RatingDocument = {
+  const newRating: any = {
     rating_id: ratingId,
     reviewer_id: reviewerId,
     reviewee_id: revieweeId,
-    stars,
+    stars: stars,
     status: 'active',
-    created_at: Timestamp.now(),
+    created_at: serverTimestamp(),
   };
   
   if (reviewText) {
@@ -64,12 +69,24 @@ export async function submitRating(
     newRating.listing_id = listingId;
   }
   
-  await setDoc(ratingRef, newRating);
-  
-  // Trigger aggregate rating recalculation
-  await recalculateAggregateRatings(revieweeId);
-  
-  return newRating;
+  try {
+    await setDoc(ratingRef, newRating);
+    
+    // Trigger aggregate rating recalculation
+    await recalculateAggregateRatings(revieweeId);
+    
+    // Return the rating with current timestamp for local use
+    return {
+      ...newRating,
+      created_at: Timestamp.now(),
+    } as RatingDocument;
+  } catch (error: any) {
+    console.error('Error submitting rating:', error);
+    if (error.code === 'permission-denied') {
+      throw new Error('Permission denied. Please make sure you are logged in and have the necessary permissions.');
+    }
+    throw error;
+  }
 }
 
 /**
@@ -110,54 +127,60 @@ async function findExistingRating(
  * @returns Promise resolving when recalculation is complete
  */
 export async function recalculateAggregateRatings(userId: string): Promise<void> {
-  // Get all active ratings for this user
-  const ratingsRef = collection(db, 'ratings');
-  const q = query(
-    ratingsRef,
-    where('reviewee_id', '==', userId),
-    where('status', '==', 'active')
-  );
-  
-  const querySnapshot = await getDocs(q);
-  const ratings = querySnapshot.docs.map(doc => doc.data() as RatingDocument);
-  
-  if (ratings.length === 0) {
-    // No ratings, set to defaults
+  try {
+    // Get all active ratings for this user
+    const ratingsRef = collection(db, 'ratings');
+    const q = query(
+      ratingsRef,
+      where('reviewee_id', '==', userId),
+      where('status', '==', 'active')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const ratings = querySnapshot.docs.map(doc => doc.data() as RatingDocument);
+    
+    if (ratings.length === 0) {
+      // No ratings, set to defaults
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        average_rating: 0,
+        total_ratings: 0,
+        rating_distribution: {},
+        updated_at: serverTimestamp(),
+      });
+      return;
+    }
+    
+    // Calculate average
+    const totalStars = ratings.reduce((sum, rating) => sum + rating.stars, 0);
+    const averageRating = totalStars / ratings.length;
+    
+    // Calculate distribution
+    const distribution: { [key: number]: number } = {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+    };
+    
+    ratings.forEach(rating => {
+      distribution[rating.stars] = (distribution[rating.stars] || 0) + 1;
+    });
+    
+    // Update user document
     const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, {
-      average_rating: 0,
-      total_ratings: 0,
-      rating_distribution: {},
+      average_rating: averageRating,
+      total_ratings: ratings.length,
+      rating_distribution: distribution,
       updated_at: serverTimestamp(),
     });
-    return;
+  } catch (error: any) {
+    console.error('Error recalculating aggregate ratings:', error);
+    // Don't throw error - rating was already submitted successfully
+    // Just log the error for debugging
   }
-  
-  // Calculate average
-  const totalStars = ratings.reduce((sum, rating) => sum + rating.stars, 0);
-  const averageRating = totalStars / ratings.length;
-  
-  // Calculate distribution
-  const distribution: { [key: number]: number } = {
-    1: 0,
-    2: 0,
-    3: 0,
-    4: 0,
-    5: 0,
-  };
-  
-  ratings.forEach(rating => {
-    distribution[rating.stars] = (distribution[rating.stars] || 0) + 1;
-  });
-  
-  // Update user document
-  const userRef = doc(db, 'users', userId);
-  await updateDoc(userRef, {
-    average_rating: averageRating,
-    total_ratings: ratings.length,
-    rating_distribution: distribution,
-    updated_at: serverTimestamp(),
-  });
 }
 
 /**

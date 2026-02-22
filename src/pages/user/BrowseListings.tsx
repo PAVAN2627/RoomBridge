@@ -16,6 +16,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { matchListingScore } from "@/lib/matchScore";
 import { getCurrentLocation, calculateDistance } from "@/lib/geocoding";
@@ -29,6 +36,8 @@ const BrowseListings = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("All");
+  const [selectedArea, setSelectedArea] = useState<string>("all");
+  const [selectedRoomType, setSelectedRoomType] = useState<string>("all");
   const [sortByMatch, setSortByMatch] = useState(true); // Default to true - sort by match score
   const [viewMode, setViewMode] = useState<"sections" | "grid">("grid"); // Default to grid view
   const [selectedListing, setSelectedListing] = useState<ListingDocument | null>(null);
@@ -135,7 +144,16 @@ const BrowseListings = () => {
       (selectedFilter === "Emergency" && listing.listing_type === "emergency") ||
       (selectedFilter === "Flatmate" && listing.listing_type === "flatmate");
 
-    return matchesSearch && matchesFilter;
+    const matchesArea =
+      selectedArea === "all" ||
+      listing.city.toLowerCase().includes(selectedArea.toLowerCase()) ||
+      listing.location.toLowerCase().includes(selectedArea.toLowerCase());
+
+    const matchesRoomType =
+      selectedRoomType === "all" ||
+      listing.room_type === selectedRoomType;
+
+    return matchesSearch && matchesFilter && matchesArea && matchesRoomType;
   });
 
   const getListingTypeLabel = (type: string) => {
@@ -314,6 +332,62 @@ const BrowseListings = () => {
               Search
             </Button>
           </div>
+          
+          {/* Area and Room Type Filters */}
+          <motion.div 
+            className="flex flex-col sm:flex-row gap-3 mt-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
+            {/* Area Filter */}
+            <div className="flex-1">
+              <Select value={selectedArea} onValueChange={setSelectedArea}>
+                <SelectTrigger className="w-full rounded-xl bg-background border-border focus:ring-2 focus:ring-primary/50">
+                  <SelectValue placeholder="Filter by Area" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Areas</SelectItem>
+                  {(() => {
+                    // Extract unique cities and locations from listings
+                    const areas = new Set<string>();
+                    listings.forEach(listing => {
+                      areas.add(listing.city);
+                      // Add location if it's different from city
+                      if (listing.location && listing.location.toLowerCase() !== listing.city.toLowerCase()) {
+                        areas.add(listing.location);
+                      }
+                    });
+                    return Array.from(areas).sort().map(area => (
+                      <SelectItem key={area} value={area.toLowerCase()}>
+                        {area}
+                      </SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Room Type Filter */}
+            <div className="flex-1">
+              <Select value={selectedRoomType} onValueChange={setSelectedRoomType}>
+                <SelectTrigger className="w-full rounded-xl bg-background border-border focus:ring-2 focus:ring-primary/50">
+                  <SelectValue placeholder="Filter by Room Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Room Types</SelectItem>
+                  <SelectItem value="1rk">1RK</SelectItem>
+                  <SelectItem value="1bhk">1BHK</SelectItem>
+                  <SelectItem value="2bhk">2BHK</SelectItem>
+                  <SelectItem value="3bhk">3BHK</SelectItem>
+                  <SelectItem value="4bhk">4BHK</SelectItem>
+                  <SelectItem value="studio">Studio</SelectItem>
+                  <SelectItem value="shared">Shared</SelectItem>
+                  <SelectItem value="single">Single</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </motion.div>
           
           {/* Filter Chips with Animation */}
           <motion.div 
