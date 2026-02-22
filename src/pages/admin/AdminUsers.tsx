@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import AdminDashboardLayout from "@/components/AdminDashboardLayout";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { CheckCircle2, XCircle, Loader2, X, ShieldCheck, ShieldOff, User, Mail, Phone, MapPin, Building2, Star, Calendar, FileText, Image as ImageIcon, UserX, Trash2, Users, AlertTriangle } from "lucide-react";
 import { collection, query, getDocs, orderBy, limit, doc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
@@ -173,6 +174,93 @@ const AdminUsers = () => {
     } catch (error) {
       console.error("Error deleting user:", error);
       toast({ title: "Error", description: "Failed to delete account", variant: "destructive" });
+    } finally {
+      setActioning(false);
+    }
+  };
+
+  const toggleVerification = async (userId: string, currentStatus: string) => {
+    setActioning(true);
+    try {
+      const newStatus = currentStatus === "verified" ? "pending" : "verified";
+      const updates: any = {
+        verification_status: newStatus,
+        updated_at: serverTimestamp(),
+      };
+
+      // If verifying, add badges based on documents
+      if (newStatus === "verified") {
+        const user = users.find(u => u.id === userId);
+        const badges: string[] = [];
+        
+        if (user?.student_id_url || user?.college) {
+          badges.push('student');
+        }
+        if (user?.professional_id_url || user?.company) {
+          badges.push('professional');
+        }
+        if (user?.selfie_url) {
+          badges.push('identity');
+        }
+        
+        updates.verification_badges = badges;
+        updates.aadhaar_verified = true;
+        updates.pan_verified = true;
+      } else {
+        // If unverifying, remove badges
+        updates.verification_badges = [];
+        updates.aadhaar_verified = false;
+        updates.pan_verified = false;
+      }
+
+      await updateDoc(doc(db, "users", userId), updates);
+      
+      setUsers((prev) => prev.map((x) => x.id === userId ? { ...x, ...updates } : x));
+      if (selected?.id === userId) {
+        setSelected((prev: any) => ({ ...prev, ...updates }));
+      }
+      
+      toast({ 
+        title: newStatus === "verified" ? "User verified" : "Verification removed",
+        description: newStatus === "verified" ? "User has been verified successfully." : "User verification has been removed."
+      });
+    } catch (error) {
+      console.error("Error toggling verification:", error);
+      toast({ title: "Error", description: "Failed to update verification status", variant: "destructive" });
+    } finally {
+      setActioning(false);
+    }
+  };
+
+  const toggleAccountStatus = async (userId: string, currentStatus: string) => {
+    setActioning(true);
+    try {
+      const newStatus = currentStatus === "active" ? "deactivated" : "active";
+      const updates: any = {
+        account_status: newStatus,
+        updated_at: serverTimestamp(),
+      };
+
+      if (newStatus === "active") {
+        updates.activated_at = serverTimestamp();
+      } else {
+        updates.deactivated_at = serverTimestamp();
+      }
+
+      await updateDoc(doc(db, "users", userId), updates);
+      
+      setUsers((prev) => prev.map((x) => x.id === userId ? { ...x, account_status: newStatus } : x));
+      if (selected?.id === userId) {
+        setSelected((prev: any) => ({ ...prev, account_status: newStatus }));
+      }
+      
+      toast({ 
+        title: newStatus === "active" ? "Account activated" : "Account deactivated",
+        description: newStatus === "active" ? "User account has been activated." : "User account has been deactivated."
+      });
+    } catch (error) {
+      console.error("Error toggling account status:", error);
+      toast({ title: "Error", description: "Failed to update account status", variant: "destructive" });
     } finally {
       setActioning(false);
     }
@@ -498,55 +586,69 @@ const AdminUsers = () => {
                   <strong>Ban reason:</strong> {selected.ban_reason}
                 </div>
               )}
+
+              {/* Toggle Controls */}
+              <div className="bg-muted rounded-xl p-4 space-y-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Account Controls</p>
+                
+                {/* Verification Status Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className={`w-4 h-4 ${selected.verification_status === "verified" ? "text-green-600" : "text-muted-foreground"}`} />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Verification Status</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selected.verification_status === "verified" ? "User is verified" : "User is not verified"}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={selected.verification_status === "verified"}
+                    onCheckedChange={() => toggleVerification(selected.id, selected.verification_status)}
+                    disabled={actioning}
+                  />
+                </div>
+
+                {/* Account Status Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className={`w-4 h-4 ${selected.account_status === "active" ? "text-green-600" : "text-orange-600"}`} />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Account Status</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selected.account_status === "active" ? "Account is active" : "Account is deactivated"}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={selected.account_status === "active"}
+                    onCheckedChange={() => toggleAccountStatus(selected.id, selected.account_status || "active")}
+                    disabled={actioning}
+                  />
+                </div>
+
+                {/* Ban Status Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldOff className={`w-4 h-4 ${selected.ban_status === "active" ? "text-destructive" : "text-green-600"}`} />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Ban Status</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selected.ban_status === "active" ? "User is banned" : "User is not banned"}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={selected.ban_status === "active"}
+                    onCheckedChange={() => toggleBan(selected)}
+                    disabled={actioning}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Footer actions */}
             <div className="p-5 pt-0 flex gap-2 flex-wrap">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  variant={selected.ban_status === "active" ? "outline" : "destructive"}
-                  size="sm"
-                  disabled={actioning}
-                  onClick={() => toggleBan(selected)}
-                  className="flex items-center gap-1.5"
-                >
-                  {actioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> :
-                    selected.ban_status === "active"
-                      ? <><ShieldCheck className="w-3.5 h-3.5" /> Unban User</>
-                      : <><ShieldOff className="w-3.5 h-3.5" /> Ban User</>
-                  }
-                </Button>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={actioning || selected.account_status === "deactivated"}
-                  onClick={() => {
-                    setUserToDeactivate(selected);
-                    setDeactivateDialogOpen(true);
-                  }}
-                  className="flex items-center gap-1.5"
-                >
-                  <UserX className="w-3.5 h-3.5" />
-                  Deactivate
-                </Button>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={actioning || selected.account_status !== "deactivated"}
-                  onClick={() => {
-                    setUserToActivate(selected);
-                    setActivateDialogOpen(true);
-                  }}
-                  className="flex items-center gap-1.5 border-green-500/30 hover:bg-green-500/10 hover:text-green-600"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Activate
-                </Button>
-              </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button
                   variant="destructive"
