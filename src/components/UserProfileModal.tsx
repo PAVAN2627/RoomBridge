@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UserDocument, RatingDocument } from "@/lib/firebase/types";
-import { getUser } from "@/lib/firebase/users";
+import { getUser, verifyUser } from "@/lib/firebase/users";
 import { getUserRatings } from "@/lib/firebase/ratings";
-import { Loader2, MapPin, Star, Lock, MessageCircle, GraduationCap, Briefcase, Eye, EyeOff } from "lucide-react";
+import { Loader2, MapPin, Star, Lock, MessageCircle, GraduationCap, Briefcase, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +17,7 @@ interface UserProfileModalProps {
 }
 
 export function UserProfileModal({ userId, open, onOpenChange }: UserProfileModalProps) {
-  const { user } = useAuth();
+  const { user, userData: currentUserData } = useAuth();
   const { toast } = useToast();
   const [userData, setUserData] = useState<UserDocument | null>(null);
   const [userRatings, setUserRatings] = useState<RatingDocument[]>([]);
@@ -29,6 +29,7 @@ export function UserProfileModal({ userId, open, onOpenChange }: UserProfileModa
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingDone, setRatingDone] = useState(false);
   const [showIdProof, setShowIdProof] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (userId && open) {
@@ -42,17 +43,28 @@ export function UserProfileModal({ userId, open, onOpenChange }: UserProfileModa
       setUserRatings([]);
       // Load user data, check connection, and fetch ratings simultaneously
       const isOwnProfile = user?.uid === userId;
+      
+      // Fetch user data and connection status
       Promise.all([
         getUser(userId),
         isOwnProfile || !user
           ? Promise.resolve(true)
           : findChatBetweenUsers(user.uid, userId).then((chat) => chat !== null),
-        getUserRatings(userId, 10), // Fetch up to 10 ratings
       ])
-        .then(([uData, connected, ratings]) => {
+        .then(([uData, connected]) => {
           setUserData(uData);
           setIsConnected(connected);
-          setUserRatings(ratings);
+          
+          // Fetch ratings separately to avoid blocking profile display if index is missing
+          getUserRatings(userId, 10)
+            .then((ratings) => {
+              setUserRatings(ratings);
+            })
+            .catch((err) => {
+              console.error('Error fetching ratings:', err);
+              // Don't block profile display if ratings fail
+              setUserRatings([]);
+            });
         })
         .catch(console.error)
         .finally(() => setLoading(false));
@@ -73,6 +85,23 @@ export function UserProfileModal({ userId, open, onOpenChange }: UserProfileModa
       toast({ title: "Error", description: err.message || "Failed to submit rating", variant: "destructive" });
     } finally {
       setRatingSubmitting(false);
+    }
+  };
+
+  const handleVerifyUser = async () => {
+    if (!userId) return;
+    setVerifying(true);
+    try {
+      await verifyUser(userId);
+      toast({ title: "User Verified!", description: "User has been successfully verified." });
+      // Refresh user data
+      const updatedUser = await getUser(userId);
+      setUserData(updatedUser);
+    } catch (err: any) {
+      console.error('Verification error:', err);
+      toast({ title: "Error", description: err.message || "Failed to verify user", variant: "destructive" });
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -105,10 +134,41 @@ export function UserProfileModal({ userId, open, onOpenChange }: UserProfileModa
                 </div>
               )}
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-foreground">{userData.name}</h3>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-xl font-bold text-foreground">{userData.name}</h3>
+                  {userData.verification_status === 'verified' && (
+                    <div className="flex items-center gap-1 bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full border border-green-500/20">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span className="text-xs font-semibold">Verified</span>
+                    </div>
+                  )}
+                  {userData.verification_status === 'unverified' && (
+                    <div className="flex items-center gap-1 bg-orange-500/10 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/20">
+                      <span className="text-xs font-semibold">Unverified</span>
+                    </div>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {userData.age} years • {userData.gender}
                 </p>
+                
+                {/* Admin Verify Button */}
+                {currentUserData?.role === 'admin' && userData.verification_status !== 'verified' && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="mt-2 bg-green-600 hover:bg-green-700"
+                    disabled={verifying}
+                    onClick={handleVerifyUser}
+                  >
+                    {verifying ? (
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                    )}
+                    Verify User
+                  </Button>
+                )}
               </div>
             </div>
 

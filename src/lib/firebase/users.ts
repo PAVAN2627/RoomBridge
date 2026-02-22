@@ -170,3 +170,40 @@ export async function addVerificationBadge(
     });
   }
 }
+
+/**
+ * Verify a user (admin only)
+ * Updates verification status and adds all verification badges
+ * @param userId - User ID to verify
+ * @returns Promise resolving when verification is complete
+ */
+export async function verifyUser(userId: string): Promise<void> {
+  const userRef = doc(db, 'users', userId);
+  const userSnap = await getDoc(userRef);
+  
+  if (!userSnap.exists()) {
+    throw new Error('User not found');
+  }
+  
+  const userData = userSnap.data() as UserDocument;
+  const badges: string[] = [];
+  
+  // Add badges based on what documents they have
+  if (userData.student_id_url || userData.college) {
+    badges.push('student');
+  }
+  if (userData.professional_id_url || userData.company) {
+    badges.push('professional');
+  }
+  if (userData.selfie_url) {
+    badges.push('identity');
+  }
+  
+  await updateDoc(userRef, {
+    verification_status: 'verified',
+    verification_badges: badges,
+    aadhaar_verified: true,
+    pan_verified: true,
+    updated_at: serverTimestamp(),
+  });
+}
