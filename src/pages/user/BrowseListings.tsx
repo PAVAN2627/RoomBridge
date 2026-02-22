@@ -466,22 +466,6 @@ const BrowseListings = () => {
             )}
           </div>
         </motion.div>
-                  onClick={() => setSortByMatch((v) => !v)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all border shadow-sm ${
-                    sortByMatch
-                      ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-green-600 shadow-green-500/30"
-                      : "bg-background text-muted-foreground border-border hover:bg-accent hover:border-primary/30"
-                  }`}
-                >
-                  <Zap className={`w-4 h-4 ${sortByMatch ? "animate-pulse" : ""}`} />
-                  {sortByMatch ? "Sorted by Match" : "Sort by Match"}
-                </motion.button>
-              </>
-            )}
-          </div>
-        </motion.div>
 
         {/* Location Info Banner */}
         {!loading && displayListings.length > 0 && (
