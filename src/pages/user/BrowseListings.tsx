@@ -29,7 +29,7 @@ const BrowseListings = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("All");
-  const [sortByMatch, setSortByMatch] = useState(false);
+  const [sortByMatch, setSortByMatch] = useState(true); // Default to true - sort by match score
   const [viewMode, setViewMode] = useState<"sections" | "grid">("grid"); // Default to grid view
   const [selectedListing, setSelectedListing] = useState<ListingDocument | null>(null);
   const [imageIndex, setImageIndex] = useState(0);

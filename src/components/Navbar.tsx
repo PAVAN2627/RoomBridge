@@ -36,7 +36,7 @@ const Navbar = () => {
           <div className="w-9 h-9 rounded-lg bg-gradient-brand flex items-center justify-center">
             <Shield className="w-5 h-5 text-primary-foreground" />
           </div>
-          <span className="font-display text-xl font-bold text-gradient-brand">RoomMatch</span>
+          <span className="font-display text-xl font-bold text-gradient-brand">RoomBridge</span>
         </Link>
 
         {/* Desktop */}
