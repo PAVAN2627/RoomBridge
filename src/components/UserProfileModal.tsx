@@ -58,10 +58,13 @@ export function UserProfileModal({ userId, open, onOpenChange }: UserProfileModa
     if (!user || !userId || ratingStars === 0) return;
     setRatingSubmitting(true);
     try {
+      console.log('Submitting rating:', { reviewer: user.uid, reviewee: userId, stars: ratingStars });
       await submitRating(user.uid, userId, ratingStars, reviewText || undefined);
       setRatingDone(true);
+      console.log('Rating submitted successfully');
       toast({ title: "Rating submitted!", description: "Your review has been saved." });
     } catch (err: any) {
+      console.error('Rating submission error:', err);
       toast({ title: "Error", description: err.message || "Failed to submit rating", variant: "destructive" });
     } finally {
       setRatingSubmitting(false);

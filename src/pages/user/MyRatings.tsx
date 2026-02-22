@@ -30,9 +30,12 @@ const MyRatings = () => {
       if (!user) return;
       
       try {
+        console.log('Fetching ratings for user:', user.uid);
         const ratingsRef = collection(db, "ratings");
         const q = query(ratingsRef, where("reviewee_id", "==", user.uid));
         const snapshot = await getDocs(q);
+        
+        console.log('Total ratings found:', snapshot.docs.length);
         
         const ratingsData = snapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() }))
@@ -42,6 +45,9 @@ const MyRatings = () => {
             const bTime = b.created_at?.toMillis?.() ?? 0;
             return bTime - aTime;
           }) as RatingWithReviewer[];
+        
+        console.log('Active ratings after filtering:', ratingsData.length);
+        console.log('Ratings data:', ratingsData);
         
         // Fetch reviewer details for each rating
         const ratingsWithReviewers = await Promise.all(
@@ -63,6 +69,7 @@ const MyRatings = () => {
           })
         );
         
+        console.log('Ratings with reviewer details:', ratingsWithReviewers);
         setRatings(ratingsWithReviewers);
         
         // Calculate average rating
