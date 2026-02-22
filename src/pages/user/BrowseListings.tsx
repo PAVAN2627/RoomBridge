@@ -422,7 +422,7 @@ const BrowseListings = () => {
 
         {/* Results Header with Animation */}
         <motion.div 
-          className="flex items-center justify-between flex-wrap gap-3"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.3 }}
@@ -431,23 +431,41 @@ const BrowseListings = () => {
             <span className="text-primary font-bold">{displayListings.length}</span> listing{displayListings.length !== 1 ? "s" : ""} found
             {sortByMatch && userData && <span className="text-violet-600 dark:text-violet-400"> · sorted by match</span>}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {userData && (
               <>
                 <motion.button
                   onClick={() => setViewMode(viewMode === "sections" ? "grid" : "sections")}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all border shadow-sm ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold transition-all border shadow-sm whitespace-nowrap ${
                     viewMode === "sections"
                       ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-blue-600 shadow-blue-500/30"
                       : "bg-background text-muted-foreground border-border hover:bg-accent hover:border-primary/30"
                   }`}
                 >
-                  <Sparkles className={`w-4 h-4 ${viewMode === "sections" ? "animate-pulse" : ""}`} />
-                  {viewMode === "sections" ? "Smart Sections" : "Show Sections"}
+                  <Sparkles className={`w-3.5 h-3.5 ${viewMode === "sections" ? "animate-pulse" : ""}`} />
+                  <span className="hidden sm:inline">{viewMode === "sections" ? "Smart Sections" : "Show Sections"}</span>
+                  <span className="sm:hidden">Sections</span>
                 </motion.button>
                 <motion.button
+                  onClick={() => setSortByMatch((v) => !v)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold transition-all border shadow-sm whitespace-nowrap ${
+                    sortByMatch
+                      ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-green-600 shadow-green-500/30"
+                      : "bg-background text-muted-foreground border-border hover:bg-accent hover:border-primary/30"
+                  }`}
+                >
+                  <Zap className={`w-3.5 h-3.5 ${sortByMatch ? "animate-pulse" : ""}`} />
+                  <span className="hidden sm:inline">{sortByMatch ? "Sorted by Match" : "Sort by Match"}</span>
+                  <span className="sm:hidden">Match</span>
+                </motion.button>
+              </>
+            )}
+          </div>
+        </motion.div>
                   onClick={() => setSortByMatch((v) => !v)}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -665,10 +683,19 @@ const BrowseListings = () => {
                       visible: { opacity: 1, y: 0 }
                     }}
                     whileHover={{ y: -8, transition: { duration: 0.2 } }}
-                    onClick={() => { setSelectedListing(listing); setImageIndex(0); }}
+                    onClick={(e) => {
+                      // Prevent click if clicking on a button or link inside the card
+                      const target = e.target as HTMLElement;
+                      if (target.tagName === 'BUTTON' || target.tagName === 'A' || target.closest('button') || target.closest('a')) {
+                        return;
+                      }
+                      setSelectedListing(listing);
+                      setImageIndex(0);
+                    }}
                     className={`group bg-card rounded-2xl border overflow-hidden shadow-md hover:shadow-2xl transition-all cursor-pointer relative ${
                       isEmergency ? "border-orange-300 dark:border-orange-900 ring-2 ring-orange-500/20" : "border-border hover:border-primary/30"
                     }`}
+                    style={{ touchAction: 'manipulation' }}
                   >
                     {/* Image with Overlay Effect */}
                     <div className="h-48 bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/20 dark:to-purple-900/20 relative overflow-hidden">
@@ -792,7 +819,7 @@ const BrowseListings = () => {
 
       {/* Listing Details Dialog */}
       <Dialog open={!!selectedListing} onOpenChange={(open) => !open && setSelectedListing(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0" aria-describedby={undefined}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 w-[95vw] sm:w-full" aria-describedby={undefined}>
           {selectedListing && (() => {
             const l = selectedListing;
             const images = l.images || [];
