@@ -8,12 +8,10 @@
 
 | Resource | Link |
 |---|---|
-| 🌐 **Live Demo** | [roombridge.vercel.app](#) |
-| 🎤 **Pitching Video** | [Watch Pitch](#) |
-| 🎥 **Demo Video** | [Watch Demo](#) |
-| 📊 **Presentation (PPT)** | [View PPT](#) |
-
-> Replace `#` placeholders above with your actual URLs before submission.
+| 🌐 **Live Demo** | [room-bridge-8d82.vercel.app](https://room-bridge-8d82.vercel.app) |
+| 🎤 **Pitching Video** | [Watch Pitch](https://drive.google.com/file/d/1bvPLMIC_BcS5M8Ch2N71zfmbA8nWyWmg/view?usp=drivesdk) |
+| 🎥 **Demo Video** | [Watch Demo](https://drive.google.com/file/d/1Tn0Mt4gKtqsXOlihv9WrDdrLw-lrEppT/view?usp=sharing) |
+| 📊 **Presentation (PPT)** | [View PPT](https://docs.google.com/presentation/d/1P85fdWBN9yVrMvZmFsIi_Qtx-leJsbjj/edit?usp=drive_link&ouid=104590056778434731836&rtpof=true&sd=true) |
 
 ---
 
