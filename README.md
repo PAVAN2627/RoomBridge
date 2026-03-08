@@ -93,7 +93,7 @@ Emergency listings auto-expire after **72 hours**. A warning notification is sen
 - **Cloud Firestore** — real-time NoSQL database
 - **Firebase Storage** — image uploads (profile photos, verification docs)
 - **Firebase Security Rules** — role-based data access control
-- **Firebase Hosting** — static site deployment
+
 
 ### AI / ML
 - **Google Gemini 2.5 Flash** — conversational AI chatbot (platform-scoped Q&A)
