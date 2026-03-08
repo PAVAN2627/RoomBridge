@@ -313,16 +313,6 @@ npm run test         # Run tests
 3. Add environment variables
 4. Deploy
 
-### Netlify
-1. Connect repository
-2. Add environment variables
-3. Deploy
-
-### Firebase Hosting
-```bash
-npm run build
-firebase deploy --only hosting
-```
 
 ## 📁 Project Structure
 
